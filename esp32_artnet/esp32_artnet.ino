@@ -21,7 +21,8 @@ CRGB leds[NUM_LEDS];
 int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
 
 // this is here so that we don't call Fastled.show() too fast. things froze if we did that
-unsigned long expectedTime = 1 + LED_HEIGHT * 24 * 11 / (800 * 10);     // 1000 us for the reset pulse (takes 50 us. better safe than sorry) 11/10 added 10 % extra just to be on the safe side
+// perhaps I should use microseconds here. I could shave off a couple of milliseconds
+unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
 
 
 ArtnetESP32 artnet;
@@ -82,7 +83,7 @@ void setup()
   
   randomSeed(esp_random());
   set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
-  if (expectedTime < 10) expectedTime = 10;
+  if (expectedTime < 11) expectedTime = 11;
 
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   artnet.setLedsBuffer((uint8_t*)leds); //set the buffer to put the frame once a frame has been received
