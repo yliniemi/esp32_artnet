@@ -20,10 +20,6 @@ CRGB leds[NUM_LEDS];
 
 int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
 
-// this is here so that we don't call Fastled.show() too fast. things froze if we did that
-// perhaps I should use microseconds here. I could shave off a couple of milliseconds
-unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
-
 
 ArtnetESP32 artnet;
 
@@ -31,13 +27,22 @@ ArtnetESP32 artnet;
 void displayfunction()
 {
   if (artnet.frameslues%100==0)
+  {
+    Serial.println(String("micros() = ") + micros());
     Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
     //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
-    
-  static unsigned long oldMillis = 0;
-  unsigned long frameTime = millis() - oldMillis;
-  if (frameTime < expectedTime) delay(expectedTime - frameTime);
-  oldMillis = millis();
+  }
+  
+  // this is here so that we don't call Fastled.show() too fast. things froze if we did that
+  // perhaps I should use microseconds here. I could shave off a couple of milliseconds
+  // unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
+  static unsigned long expectedTime = LED_HEIGHT * 24 * 11 / 8 + 500;     // 500 us for the reset pulse and (takes 50 us. better safe than sorry) also added 10 % extra just to be on the safe side
+  
+  static unsigned long oldMicros = 0;
+  unsigned long frameTime = micros() - oldMicros;
+  if (frameTime > 6000000) delayMicroseconds(expectedTime);
+  if (frameTime < expectedTime) delayMicroseconds(expectedTime - frameTime);
+  oldMicros = micros();
    
   FastLED.show();
 }
@@ -45,6 +50,9 @@ void displayfunction()
 
 void setup()
 {
+  Serial.begin(115200);
+  Serial.println("Booting");
+  
   setupWifi();
   
   Serial.println("Ready");
@@ -83,8 +91,7 @@ void setup()
   
   randomSeed(esp_random());
   set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
-  if (expectedTime < 11) expectedTime = 11;
-
+  
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   artnet.setLedsBuffer((uint8_t*)leds); //set the buffer to put the frame once a frame has been received
 
