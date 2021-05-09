@@ -29,7 +29,7 @@ void displayfunction()
   if (artnet.frameslues%100==0)
   {
     Serial.println(String("micros() = ") + micros());
-    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
     //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
   }
   
