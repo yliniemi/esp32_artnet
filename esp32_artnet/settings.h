@@ -8,6 +8,7 @@
 #define USING_SERIALOTA           // uncomment this if you are not using SerialOTA
 #define RANDOM_RESOLUTION 1000
 #define USING_LED_BUFFER
+#define FASTLED_ESP32_I2S
 
 #define PIN_0 4
 #define PIN_1 5

@@ -29,14 +29,7 @@ ArtnetESP32 artnet;
 
 
 void displayfunction()
-{
-  if (artnet.frameslues%100==0)
-  {
-    Serial.println(String("micros() = ") + micros());
-    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
-  }
-  
+{  
   // this is here so that we don't call Fastled.show() too fast. things froze if we did that
   // perhaps I should use microseconds here. I could shave off a couple of milliseconds
   // unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
@@ -44,8 +37,13 @@ void displayfunction()
   
   static unsigned long oldMicros = 0;
   unsigned long frameTime = micros() - oldMicros;
+  static unsigned long delay;
   if (frameTime > 6000000) delayMicroseconds(expectedTime);
-  if (frameTime < expectedTime) delayMicroseconds(expectedTime - frameTime);
+  else if (frameTime < expectedTime)
+  {
+    delay = expectedTime - frameTime;
+    delayMicroseconds(delay);
+  }
   
   #ifdef USING_LED_BUFFER
   memcpy(&leds[0], &ledsBuffer[0], sizeof(CRGB) * NUM_LEDS);
@@ -53,6 +51,22 @@ void displayfunction()
   
   oldMicros = micros();
   FastLED.show();
+  static unsigned long biggestDelta = 0;
+  unsigned long delta = micros() - oldMicros;
+  if (biggestDelta < delta) biggestDelta = delta;
+  if (artnet.frameslues%100==0)
+  {
+    Serial.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
+    Serial.println(String("Delay was ") + delay + " microseconds");
+    Serial.println(String("frameTime was ") + frameTime + " microseconds");
+    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+    SerialOTA.println(String("FastLED.show() took ") + (micros() - oldMicros) + " microseconds");
+    SerialOTA.println(String("Delay was ") + delay + " microseconds");
+    SerialOTA.println(String("frameTime was ") + frameTime + " microseconds");
+    SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+    //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
+    biggestDelta = 0;
+  }
 }
 
 
