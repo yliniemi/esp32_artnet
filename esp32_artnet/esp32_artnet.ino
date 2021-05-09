@@ -18,6 +18,10 @@ FASTLED_USING_NAMESPACE
 #define UNIVERSE_SIZE 170 //my setup is 170 leds per universe no matter if the last universe is not full.
 CRGB leds[NUM_LEDS];
 
+#ifdef USING_LED_BUFFER
+CRGB ledsBuffer[NUM_LEDS];
+#endif
+
 int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
 
 
@@ -42,8 +46,12 @@ void displayfunction()
   unsigned long frameTime = micros() - oldMicros;
   if (frameTime > 6000000) delayMicroseconds(expectedTime);
   if (frameTime < expectedTime) delayMicroseconds(expectedTime - frameTime);
+  
+  #ifdef USING_LED_BUFFER
+  memcpy(&leds[0], &ledsBuffer[0], sizeof(CRGB) * NUM_LEDS);
+  #endif
+  
   oldMicros = micros();
-   
   FastLED.show();
 }
 
@@ -93,8 +101,15 @@ void setup()
   set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
   
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
+  
+  #ifndef USING_LED_BUFFER
   artnet.setLedsBuffer((uint8_t*)leds); //set the buffer to put the frame once a frame has been received
-
+  #endif
+  
+  #ifdef USING_LED_BUFFER
+  artnet.setLedsBuffer((uint8_t*)ledsBuffer); //set the buffer to put the frame once a frame has been received
+  #endif
+  
   artnet.begin(NUM_LEDS,UNIVERSE_SIZE); //configure artnet
 
 
