@@ -37,6 +37,8 @@ void displayfunction()
   
   static unsigned long oldMicros = 0;
   unsigned long frameTime = micros() - oldMicros;
+  static unsigned long biggestFrameTime = 0;
+  if (biggestFrameTime < frameTime) biggestFrameTime = frameTime;
   static unsigned long delay;
   if (frameTime > 6000000) delayMicroseconds(expectedTime);
   else if (frameTime < expectedTime)
@@ -51,21 +53,24 @@ void displayfunction()
   
   oldMicros = micros();
   FastLED.show();
-  static unsigned long biggestDelta = 0;
   unsigned long delta = micros() - oldMicros;
+  static unsigned long biggestDelta = 0;
   if (biggestDelta < delta) biggestDelta = delta;
   if (artnet.frameslues%100==0)
   {
+    Serial.println();
     Serial.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
     Serial.println(String("Delay was ") + delay + " microseconds");
-    Serial.println(String("frameTime was ") + frameTime + " microseconds");
+    Serial.println(String("frameTime was ") + biggestFrameTime + " microseconds");
     Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    SerialOTA.println(String("FastLED.show() took ") + (micros() - oldMicros) + " microseconds");
+    SerialOTA.println();
+    SerialOTA.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
     SerialOTA.println(String("Delay was ") + delay + " microseconds");
-    SerialOTA.println(String("frameTime was ") + frameTime + " microseconds");
+    SerialOTA.println(String("frameTime was ") + biggestFrameTime + " microseconds");
     SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
     //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
     biggestDelta = 0;
+    biggestFrameTime = 0;
   }
 }
 
