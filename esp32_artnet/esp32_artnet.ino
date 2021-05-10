@@ -39,6 +39,8 @@ void displayfunction()
   unsigned long frameTime = micros() - oldMicros;
   static unsigned long biggestFrameTime = 0;
   if (biggestFrameTime < frameTime) biggestFrameTime = frameTime;
+  else if (biggestFrameTime == -1) biggestFrameTime = 0;
+  
   static unsigned long delay;
   if (frameTime > 6000000) delayMicroseconds(expectedTime);
   else if (frameTime < expectedTime)
@@ -56,7 +58,7 @@ void displayfunction()
   unsigned long delta = micros() - oldMicros;
   static unsigned long biggestDelta = 0;
   if (biggestDelta < delta) biggestDelta = delta;
-  if (artnet.frameslues%100==0)
+  if (artnet.frameslues%1000==0)
   {
     Serial.println();
     Serial.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
@@ -70,7 +72,7 @@ void displayfunction()
     SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
     //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
     biggestDelta = 0;
-    biggestFrameTime = 0;
+    biggestFrameTime = -1;
   }
 }
 
