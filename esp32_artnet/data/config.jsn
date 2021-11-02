@@ -1,0 +1,6 @@
+{
+	"ssid": "placeholderAP",
+	"psk": "placeholderPassword",
+	"hostname": "esp32 artnet",
+	"maxCurrent": 50000
+}

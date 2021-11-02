@@ -11,6 +11,7 @@
 #endif
 
 void reconnectToWifiIfNecessary();
+void setupWifi(char* primarySsid, char* primaryPsk);
 void setupWifi();
 
 #endif

@@ -101,8 +101,23 @@ void reconnectToWifiIfNecessary()
   }
 }
 
-void setupWifi()
+void setupWifi(char* primarySsid, char* primaryPsk)
 {
+  
+  if (primarySsid[0] != 0)
+  {
+    WiFi.disconnect();
+    delay(500);
+    ssid = primarySsid;
+    psk = primaryPsk;
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, psk);
+    Serial.println();
+    Serial.print("Trying to connect to ");
+    Serial.println(ssid);
+    delay(5000);
+  }
+  
   for (int i = 0; WiFi.waitForConnectResult() != WL_CONNECTED && wifiArray[i][0] != 0; i++)
   {
     WiFi.disconnect();
@@ -131,4 +146,9 @@ void setupWifi()
   // WiFi.setAutoReconnect(true);  // this didn't work well enough. i had to do this another way
   WiFi.persistent(false);          // we don't want to save the credentials on the internal filessytem of the esp32
   // WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   // this one was problematic too because you shouldn't do much right after trying to reconnect. perhaps fastled disabling interrupts does something nefarious
+}
+
+void setupWifi()
+{
+  setupWifi((char) 0, (char) 0);
 }

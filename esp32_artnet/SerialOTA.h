@@ -9,6 +9,6 @@ extern WiFiServer telnetServer;
 extern WiFiClient SerialOTA;
 
 void SerialOTAhandle();
-void setupSerialOTA();
+void setupSerialOTA(char* setHostname);
 
 #endif

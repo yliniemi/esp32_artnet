@@ -1,6 +1,6 @@
 #include "OTA.h"
 
-void setupOTA()
+void setupOTA(char* hostname)
 {
   // Port defaults to 3232
   // ArduinoOTA.setPort(3232);
@@ -10,7 +10,7 @@ void setupOTA()
   // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
   
   ArduinoOTA.setPassword(OTA_PASSWORD);
-  ArduinoOTA.setHostname(HOSTNAME);
+  ArduinoOTA.setHostname(hostname);
   ArduinoOTA
     .onStart([]() {
       String type;

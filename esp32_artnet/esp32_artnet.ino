@@ -8,6 +8,10 @@
 #include "SerialOTA.h"
 #endif
 
+#include <FS.h>
+#include <SPIFFS.h>
+#include <ArduinoJson.h>
+
 #include <ArtnetESP32.h>
 
 #include "FastLED.h"
@@ -28,12 +32,17 @@ int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on 
 ArtnetESP32 artnet;
 
 
+char primarySsid[64];
+char primaryPsk[64];
+char hostname[64] = HOSTNAME;
+
+
 void displayfunction()
 {  
   // this is here so that we don't call Fastled.show() too fast. things froze if we did that
   // perhaps I should use microseconds here. I could shave off a couple of milliseconds
   // unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
-  static unsigned long expectedTime = LED_HEIGHT * 24 * 11 / 8 + 500;     // 500 us for the reset pulse and (takes 50 us. better safe than sorry) also added 10 % extra just to be on the safe side
+  static unsigned long expectedTime = LED_HEIGHT * 24 * 12 / 8 + 500;     // 500 us for the reset pulse and (takes 50 us. better safe than sorry) also added 20 % extra just to be on the safe side
   
   static unsigned long oldMicros = 0;
   unsigned long frameTime = micros() - oldMicros;
@@ -77,21 +86,93 @@ void displayfunction()
 }
 
 
+bool loadConfig()
+{
+  //allows serving of files from SPIFFS
+  Serial.println("Mounting FS...");
+  if (!SPIFFS.begin()) {
+    Serial.println("Failed to mount file system");
+    return false;
+  }
+
+  File configFile = SPIFFS.open(CONFIG_FILE_NAME, "r");
+  if (!configFile) {
+    Serial.println("Failed to open config file");
+    return false;
+  }
+
+  if (configFile.size() > 1024) {
+    Serial.println("Config file size is too large");
+    return false;
+  }
+
+  // Allocate the memory pool on the stack.
+  // Use arduinojson.org/assistant to compute the capacity.
+  StaticJsonDocument<1024> jsonBuffer;
+
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(jsonBuffer, configFile);
+
+  // Test if parsing succeeds.
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return false;
+  }
+
+  // Copy values from the JsonObject to the Config
+  
+  if (jsonBuffer.containsKey("ssid"))
+  {
+    String stringSsid = jsonBuffer["ssid"];
+    stringSsid.toCharArray(primarySsid, 64);
+  }
+  
+  if (jsonBuffer.containsKey("psk"))
+  {
+    String stringPsk = jsonBuffer["psk"];
+    stringPsk.toCharArray(primaryPsk, 64);
+  }
+  
+  if (jsonBuffer.containsKey("hostname"))
+  {
+    String stringPsk = jsonBuffer["hostname"];
+    stringPsk.toCharArray(hostname, 64);
+  }
+  
+  if (jsonBuffer.containsKey("maxCurrent"))
+  {
+    maxCurrent = jsonBuffer["maxCurrent"];
+  }
+  
+  // We don't need the file anymore
+  
+  configFile.close();
+
+  return true;
+}
+
+
 void setup()
 {
   Serial.begin(115200);
   Serial.println("Booting");
+
+  primarySsid[0] = 0;
+  primaryPsk[0] = 0; 
   
-  setupWifi();
+  loadConfig();
+  
+  setupWifi(primarySsid, primaryPsk);
   
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   
-  setupOTA();
+  setupOTA(hostname);
   
   #ifdef USING_SERIALOTA
-  setupSerialOTA();
+  setupSerialOTA(hostname);
   #endif
 
   FastLED.addLeds<NEOPIXEL, PIN_0>(leds, 0*LED_HEIGHT, LED_HEIGHT);

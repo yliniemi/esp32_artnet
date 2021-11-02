@@ -6,6 +6,6 @@
 
 #include <ArduinoOTA.h>
 
-void setupOTA();
+void setupOTA(char* hostname);
 
 #endif

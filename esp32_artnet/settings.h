@@ -10,6 +10,8 @@
 #define USING_LED_BUFFER
 #define FASTLED_ESP32_I2S
 
+#define CONFIG_FILE_NAME "/config.jsn"
+
 #define PIN_0 4
 #define PIN_1 5
 #define PIN_2 27

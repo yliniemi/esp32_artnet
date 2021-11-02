@@ -3,6 +3,8 @@
 WiFiServer telnetServer(23);
 WiFiClient SerialOTA;
 
+char* OTAhostname;
+
 void SerialOTAhandle()
 {
   static bool haveClient = false; // this is so that when we already have a client we won't disconnect them
@@ -14,7 +16,7 @@ void SerialOTAhandle()
     {
       haveClient = true;
       SerialOTA.print("Welcome to ");
-      SerialOTA.println(HOSTNAME);
+      SerialOTA.println(OTAhostname);
     }
   }
   else if (!SerialOTA.connected())
@@ -26,8 +28,9 @@ void SerialOTAhandle()
   }
 }
 
-void setupSerialOTA()
+void setupSerialOTA(char* setHostname)
 {
   telnetServer.begin();
   telnetServer.setNoDelay(true);
+  OTAhostname = setHostname;
 }
