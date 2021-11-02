@@ -6,7 +6,7 @@
 #define LED_HEIGHT 300
 #define MAX_CURRENT 50000         // maxumum current in milliwatts. this is here so that your powersupply won't overheat or shutdown
 #define USING_SERIALOTA           // uncomment this if you are not using SerialOTA
-#define RANDOM_RESOLUTION 1000
+#define UNIVERSE_SIZE 170         // my setup is 170 leds per universe no matter if the last universe is not full.
 #define USING_LED_BUFFER
 #define FASTLED_ESP32_I2S
 

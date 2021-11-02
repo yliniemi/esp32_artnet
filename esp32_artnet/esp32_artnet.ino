@@ -19,7 +19,6 @@ FASTLED_USING_NAMESPACE
 
 //The following has to be adapted to your specifications
 #define NUM_LEDS LED_WIDTH*LED_HEIGHT
-#define UNIVERSE_SIZE 170 //my setup is 170 leds per universe no matter if the last universe is not full.
 CRGB leds[NUM_LEDS];
 
 #ifdef USING_LED_BUFFER
@@ -27,7 +26,7 @@ CRGB ledsBuffer[NUM_LEDS];
 #endif
 
 int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
-
+int universeSize = UNIVERSE_SIZE;
 
 ArtnetESP32 artnet;
 
@@ -126,23 +125,33 @@ bool loadConfig()
   {
     String stringSsid = jsonBuffer["ssid"];
     stringSsid.toCharArray(primarySsid, 64);
+    Serial.println(String("primarySsid") + " = " + primarySsid);
   }
   
   if (jsonBuffer.containsKey("psk"))
   {
     String stringPsk = jsonBuffer["psk"];
     stringPsk.toCharArray(primaryPsk, 64);
+    Serial.println(String("primaryPsk") + " = " + "********");
   }
   
   if (jsonBuffer.containsKey("hostname"))
   {
     String stringPsk = jsonBuffer["hostname"];
     stringPsk.toCharArray(hostname, 64);
+    Serial.println(String("hostname") + " = " + hostname);
   }
   
   if (jsonBuffer.containsKey("maxCurrent"))
   {
     maxCurrent = jsonBuffer["maxCurrent"];
+    Serial.println(String("maxCurrent") + " = " + maxCurrent);
+  }
+  
+  if (jsonBuffer.containsKey("universeSize"))
+  {
+    universeSize = jsonBuffer["universeSize"];
+    Serial.println(String("universeSize") + " = " + universeSize);
   }
   
   // We don't need the file anymore
@@ -212,7 +221,7 @@ void setup()
   artnet.setLedsBuffer((uint8_t*)ledsBuffer); //set the buffer to put the frame once a frame has been received
   #endif
   
-  artnet.begin(NUM_LEDS,UNIVERSE_SIZE); //configure artnet
+  artnet.begin(NUM_LEDS, universeSize); //configure artnet
 
 
 }
