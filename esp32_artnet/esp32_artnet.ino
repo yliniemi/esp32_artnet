@@ -1,5 +1,5 @@
-#include "settings.h"
 #include <myCredentials.h>        // oh yeah. there is myCredentials.zip on the root of this repository. include it as a library and then edit the file with your onw ips and stuff
+#include "settings.h"
 
 #include "setupWifi.h"
 #include "OTA.h"
@@ -14,22 +14,26 @@
 
 #include <ArtnetESP32.h>
 
-#include "FastLED.h"
-FASTLED_USING_NAMESPACE
+// #include "FastLED.h"
+// FASTLED_USING_NAMESPACE
+#include "I2SClocklessLedDriver.h"
+I2SClocklessLedDriver driver;
 
 //The following has to be adapted to your specifications
 #define NUM_LEDS LED_WIDTH*LED_HEIGHT
-CRGB leds[NUM_LEDS];
 
-#ifdef USING_LED_BUFFER
-CRGB ledsBuffer[NUM_LEDS];
-#endif
+//int pins[] = {4, 16, 17, 5, 18, 19, 21, 3, 1};
+int pins[] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};
+volatile int gotFrame = false;
+
+uint8_t *ledsArtnet = NULL;
 
 int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
 int universeSize = UNIVERSE_SIZE;
 
 ArtnetESP32 artnet;
 
+TaskHandle_t task1, task2, task3;
 
 char primarySsid[64];
 char primaryPsk[64];
@@ -38,49 +42,31 @@ char hostname[64] = HOSTNAME;
 
 void displayfunction()
 {  
-  // this is here so that we don't call Fastled.show() too fast. things froze if we did that
-  // perhaps I should use microseconds here. I could shave off a couple of milliseconds
-  // unsigned long expectedTime = LED_HEIGHT * 24 * 11 / (800 * 10) + 2;     // 1 ms for the reset pulse and (takes 50 us. better safe than sorry) 1 ms rounding 11/10 added 10 % extra just to be on the safe side
-  static unsigned long expectedTime = LED_HEIGHT * 24 * 12 / 8 + 500;     // 500 us for the reset pulse and (takes 50 us. better safe than sorry) also added 20 % extra just to be on the safe side
-  
-  static unsigned long oldMicros = 0;
-  unsigned long frameTime = micros() - oldMicros;
-  static unsigned long biggestFrameTime = 0;
-  if (biggestFrameTime < frameTime) biggestFrameTime = frameTime;
-  else if (biggestFrameTime == -1) biggestFrameTime = 0;
-  
-  static unsigned long delay;
-  if (frameTime > 6000000) delayMicroseconds(expectedTime);
-  else if (frameTime < expectedTime)
+  gotFrame = true;
+}
+
+
+void maintenance(void* parameter)
+{
+  while(1)
   {
-    delay = expectedTime - frameTime;
-    delayMicroseconds(delay);
-  }
+    reconnectToWifiIfNecessary();
+    SerialOTAhandle();
+    ArduinoOTA.handle();
+   // displayFunction();
+    static unsigned long previousTime = 0;
   
-  #ifdef USING_LED_BUFFER
-  memcpy(&leds[0], &ledsBuffer[0], sizeof(CRGB) * NUM_LEDS);
-  #endif
-  
-  oldMicros = micros();
-  FastLED.show();
-  unsigned long delta = micros() - oldMicros;
-  static unsigned long biggestDelta = 0;
-  if (biggestDelta < delta) biggestDelta = delta;
-  if (artnet.frameslues%1000==0)
-  {
-    Serial.println();
-    Serial.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
-    Serial.println(String("Delay was ") + delay + " microseconds");
-    Serial.println(String("frameTime was ") + biggestFrameTime + " microseconds");
-    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    SerialOTA.println();
-    SerialOTA.println(String("FastLED.show() took ") + biggestDelta + " microseconds");
-    SerialOTA.println(String("Delay was ") + delay + " microseconds");
-    SerialOTA.println(String("frameTime was ") + biggestFrameTime + " microseconds");
-    SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    //here the buffer is the led array hence a simple FastLED.show() is enough to display the array
-    biggestDelta = 0;
-    biggestFrameTime = -1;
+    if ((millis() - previousTime > 60000) || (millis() < previousTime))
+    {
+      previousTime = millis();
+      Serial.println();
+      Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+      #ifdef USING_SERIALOTA
+      SerialOTA.println();
+      SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+      #endif
+    }
+    vTaskDelay(10000);    
   }
 }
 
@@ -162,6 +148,63 @@ bool loadConfig()
 }
 
 
+void flipOnAndOf(void* parameter)
+{
+  int beenOnFor = 0;
+  int beenOffFor = 0;
+  delay(2000);
+  pinMode(ATX_ON, OUTPUT);
+  digitalWrite(ATX_ON, 1);
+  delay(2000);
+  for (;;)
+  {
+    delay(1000);
+    if (gotFrame == true)
+    {
+      beenOnFor++;
+      beenOffFor = 0;
+    }
+    else
+    {
+      beenOffFor++;
+      beenOnFor = 0;
+    }
+    gotFrame = false;
+    if (beenOffFor == 60)
+    {
+      digitalWrite(ATX_ON, 1);
+      Serial.println("ATX_OFF");
+    }
+    if (beenOnFor == 20)
+    {
+      digitalWrite(ATX_ON, 0);
+      Serial.println("ATX_ON");
+    }
+    if (beenOnFor > 10000000) beenOnFor = 10000000;                     // these are here to prevent overflow. useless really but who cares? not me. that was a rhetorical question but whatever.
+    if (beenOffFor > 10000000) beenOffFor = 10000000;
+  }
+}
+
+unsigned int limitCurrent(uint8_t *leds, unsigned int numLeds, unsigned int maxCurrent, unsigned int maxBrightness)
+{
+  unsigned int sum = 0;
+  unsigned int brightness = 255;
+  // std::accumulate(&leds[0], &leds[numLeds * 3], sum);
+  for (int i = 0; i < numLeds * 3; i++) sum += leds[i];
+  unsigned int mA = sum / 13;                   // 765 / 60 = 12.75    765 is 255 * 3 and that is 60 milliamps. from this we know we can get the milliamps by dividing the sum off all leds by 13
+  // Serial.println(mA);
+  if (mA > maxCurrent)
+  {
+    brightness = maxCurrent * 255 / mA;
+  }
+  if (brightness < maxBrightness)
+  {
+    Serial.println(String("Brightness set to: ") + brightness);
+    return brightness;
+  }
+  else return maxBrightness;
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -183,55 +226,70 @@ void setup()
   #ifdef USING_SERIALOTA
   setupSerialOTA(hostname);
   #endif
-
-  FastLED.addLeds<NEOPIXEL, PIN_0>(leds, 0*LED_HEIGHT, LED_HEIGHT);
   
-  #if LED_WIDTH > 1
-  FastLED.addLeds<NEOPIXEL, PIN_1>(leds, 1*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 2
-  FastLED.addLeds<NEOPIXEL, PIN_2>(leds, 2*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 3
-  FastLED.addLeds<NEOPIXEL, PIN_3>(leds, 3*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 4
-  FastLED.addLeds<NEOPIXEL, PIN_4>(leds, 4*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 5
-  FastLED.addLeds<NEOPIXEL, PIN_5>(leds, 5*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 6
-  FastLED.addLeds<NEOPIXEL, PIN_6>(leds, 6*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  #if LED_WIDTH > 7
-  FastLED.addLeds<NEOPIXEL, PIN_7>(leds, 7*LED_HEIGHT, LED_HEIGHT);
-  #endif
-  
+  Serial.println("0");
+    
   randomSeed(esp_random());
-  set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
+  // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
   
+  ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * NUM_LEDS * 3);
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   
-  #ifndef USING_LED_BUFFER
-  artnet.setLedsBuffer((uint8_t*)leds); //set the buffer to put the frame once a frame has been received
-  #endif
+  Serial.println("1");
   
-  #ifdef USING_LED_BUFFER
-  artnet.setLedsBuffer((uint8_t*)ledsBuffer); //set the buffer to put the frame once a frame has been received
-  #endif
+  artnet.setLedsBuffer((uint8_t*)ledsArtnet); //set the buffer to put the frame once a frame has been received
+  
+  Serial.println("2");
   
   artnet.begin(NUM_LEDS, universeSize); //configure artnet
 
+  /*
+  artnet.begin(NUM_LEDS, universeSize); //configure artnet
+  buffer_number=0;
+  xTaskCreatePinnedToCore(
+      cycleLedStrips, // Function to implement the task
+      "cycleLedStrips", // Name of the task
+      10000,  // Stack size in words
+      NULL,  // Task input parameter
+      0,  // Priority of the task
+      &task2,  // Task handle.
+      0); // not core 1
+  */
+  
+  driver.initled((uint8_t*)ledsArtnet, pins, LED_WIDTH, LED_HEIGHT, ORDER_GRB);
+  driver.setBrightness(255);
+  
+  Serial.println("3");
+  
+  xTaskCreatePinnedToCore(
+      maintenance, // Function to implement the task
+      "maintenance", // Name of the task
+      10000,  // Stack size in words
+      NULL,  // Task input parameter
+      0,  // Priority of the task
+      &task1,  // Task handle.
+      0); // not core 1
 
+  delay(2000);
+  
+  xTaskCreatePinnedToCore(
+      flipOnAndOf, // Function to implement the task
+      "flipOnAndOf", // Name of the task
+      10000,  // Stack size in words
+      NULL,  // Task input parameter
+      0,  // Priority of the task
+      &task2,  // Task handle.
+      0); // Core where the task should run
+  ;
+  
+  Serial.println("4");
+  
+  
 }
 
 void loop()
 {
-  reconnectToWifiIfNecessary();
-  SerialOTAhandle();
-  ArduinoOTA.handle();
-
-  
   artnet.readFrame(); //ask to read a full frame
+  driver.setBrightness(limitCurrent(ledsArtnet, NUM_LEDS, MAX_CURRENT, 255));
+  driver.showPixels((uint8_t*)ledsArtnet);
 }

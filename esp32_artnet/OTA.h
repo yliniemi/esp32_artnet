@@ -1,8 +1,8 @@
 #ifndef OTA_H
 #define OTA_H
 
-#include "settings.h"
 #include <myCredentials.h>
+#include "settings.h"
 
 #include <ArduinoOTA.h>
 
