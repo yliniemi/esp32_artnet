@@ -2,7 +2,7 @@
 #define OTA_H
 
 #include <myCredentials.h>
-#include "settings.h"
+// #include "settings.h"
 
 #include <ArduinoOTA.h>
 

@@ -19,8 +19,6 @@
 #include "I2SClocklessLedDriver.h"
 I2SClocklessLedDriver driver;
 
-//int pins[] = {4, 16, 17, 5, 18, 19, 21, 3, 1};
-int pins[] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};
 volatile int gotFrame = false;
 
 uint8_t *ledsArtnet = NULL;
@@ -34,6 +32,7 @@ int atxOnPin = ATX_ON_PIN;
 bool atxOnEnabled = ATX_ON_ENABLED;
 int maxBrightness = MAX_BRIGHTNESS;
 
+int pins[] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};
 
 ArtnetESP32 artnet;
 
@@ -44,33 +43,54 @@ char primaryPsk[64];
 char hostname[64] = HOSTNAME;
 
 
+class Both
+{
+  template <typename T> void print(T argument)
+  {
+    Serial.print(argument);
+    #ifdef USING_SERIALOTA
+    SerialOTA.print(argument);
+    #endif
+  }
+
+  template <typename T> void println(T argument)
+  {
+    Serial.println(argument);
+    #ifdef USING_SERIALOTA
+    SerialOTA.println(argument);
+    #endif
+  }
+};
+
+
 void displayfunction()
 {  
   gotFrame = true;
 }
 
 
-void maintenance(void* parameter)
+void handleOTAs(void* parameter)
 {
-  while(1)
+  for (;;)
   {
-    reconnectToWifiIfNecessary();
+    delay(100);
     SerialOTAhandle();
     ArduinoOTA.handle();
-   // displayFunction();
-    static unsigned long previousTime = 0;
-  
-    if ((millis() - previousTime > 60000) || (millis() < previousTime))
-    {
-      previousTime = millis();
-      Serial.println();
-      Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-      #ifdef USING_SERIALOTA
-      SerialOTA.println();
-      SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-      #endif
-    }
-    vTaskDelay(10000);    
+  }
+}
+
+
+void debugInfo(void* parameter)
+{
+  for (;;)
+  {
+    delay(60000);
+    Serial.println();
+    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+    #ifdef USING_SERIALOTA
+    SerialOTA.println();
+    SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
+    #endif
   }
 }
 
@@ -187,8 +207,8 @@ void flipOnAndOf(void* parameter)
       digitalWrite(atxOnPin, 0);
       Serial.println("ATX_ON");
     }
-    if (beenOnFor > 10000000) beenOnFor = 10000000;                     // these are here to prevent overflow. useless really but who cares? not me. that was a rhetorical question but whatever.
-    if (beenOffFor > 10000000) beenOffFor = 10000000;
+    // if (beenOnFor > 10000000) beenOnFor = 10000000;                     // these are here to prevent overflow. useless really but who cares? not me. that was a rhetorical question but whatever.
+    // if (beenOffFor > 10000000) beenOffFor = 10000000;
   }
 }
 
@@ -206,7 +226,7 @@ unsigned int limitCurrent(uint8_t *leds, unsigned int numLeds, unsigned int maxC
   }
   if (brightness < maxBrightness)
   {
-    Serial.println(String("Brightness set to: ") + brightness);
+    // Serial.println(String("Brightness set to: ") + brightness);
     return brightness;
   }
   else return maxBrightness;
@@ -252,33 +272,11 @@ void setup()
   
   artnet.begin(numLeds, universeSize); //configure artnet
 
-  /*
-  artnet.begin(NUM_LEDS, universeSize); //configure artnet
-  buffer_number=0;
-  xTaskCreatePinnedToCore(
-      cycleLedStrips, // Function to implement the task
-      "cycleLedStrips", // Name of the task
-      10000,  // Stack size in words
-      NULL,  // Task input parameter
-      0,  // Priority of the task
-      &task2,  // Task handle.
-      0); // not core 1
-  */
-  
   driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
   driver.setBrightness(maxBrightness);
   
   Serial.println("3");
   
-  xTaskCreatePinnedToCore(
-      maintenance, // Function to implement the task
-      "maintenance", // Name of the task
-      10000,  // Stack size in words
-      NULL,  // Task input parameter
-      0,  // Priority of the task
-      &task1,  // Task handle.
-      0); // not core 1
-
   delay(2000);
 
   if (atxOnEnabled)
@@ -289,10 +287,27 @@ void setup()
           10000,  // Stack size in words
           NULL,  // Task input parameter
           0,  // Priority of the task
-          &task2,  // Task handle.
+          &task1,  // Task handle.
           0); // Core where the task should run
   }
-  ;
+  
+  xTaskCreatePinnedToCore(
+        debugInfo, // Function to implement the task
+        "debugInfo", // Name of the task
+        10000,  // Stack size in words
+        NULL,  // Task input parameter
+        0,  // Priority of the task
+        &task2,  // Task handle.
+        0); // Core where the task should run
+  
+  xTaskCreatePinnedToCore(
+        handleOTAs, // Function to implement the task
+        "handleOTAs", // Name of the task
+        10000,  // Stack size in words
+        NULL,  // Task input parameter
+        0,  // Priority of the task
+        &task3,  // Task handle.
+        0); // Core where the task should run
   
   Serial.println("4");
   

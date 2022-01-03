@@ -2,7 +2,7 @@
 #define SETUPWIFI_H
 
 #include <myCredentials.h>
-#include "settings.h"
+// #include "settings.h"
 
 #include <WiFi.h>
 
@@ -11,6 +11,7 @@
 #endif
 
 void reconnectToWifiIfNecessary();
+void printReconnectHistory();
 void setupWifi(char* primarySsid, char* primaryPsk);
 void setupWifi();
 

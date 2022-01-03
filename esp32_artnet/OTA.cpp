@@ -1,5 +1,6 @@
 #include "OTA.h"
 
+
 void setupOTA(char* hostname)
 {
   // Port defaults to 3232
@@ -21,9 +22,15 @@ void setupOTA(char* hostname)
 
       // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
       Serial.println("Start updating " + type);
+      #ifdef USING_SERIALOTA
+      SerialOTA.println("Start updating " + type);
+      #endif
     })
     .onEnd([]() {
       Serial.println("\nEnd");
+      #ifdef USING_SERIALOTA
+      SerialOTA.println("\nEnd");
+      #endif
     })
     .onProgress([](unsigned int progress, unsigned int total) {
       static int previousPercentage = -1;
@@ -32,17 +39,52 @@ void setupOTA(char* hostname)
       if (percentage != previousPercentage)
       {
         Serial.printf("Progress: %u%%\r\n", percentage);
-        //SerialOTA.printf("Progress: %u%%\r\n", percentage);  // uncommenting this risks OTA
+        #ifdef USING_SERIALOTA
+        SerialOTA.printf("Progress: %u%%\r\n", percentage);
+        #endif
         previousPercentage = percentage;
       }
     })
     .onError([](ota_error_t error) {
       Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+      #ifdef USING_SERIALOTA
+      SerialOTA.printf("Error[%u]: ", error);
+      #endif
+      if (error == OTA_AUTH_ERROR)
+      {
+        Serial.println("Auth Failed");
+        #ifdef USING_SERIALOTA
+        SerialOTA.println("Auth Failed");
+        #endif
+      }
+      else if (error == OTA_BEGIN_ERROR)
+      {
+        Serial.println("Begin Failed");
+        #ifdef USING_SERIALOTA
+        SerialOTA.println("Begin Failed");
+        #endif
+      }
+      else if (error == OTA_CONNECT_ERROR)
+      {
+        Serial.println("Connect Failed");
+        #ifdef USING_SERIALOTA
+        SerialOTA.println("Connect Failed");
+        #endif
+      }
+      else if (error == OTA_RECEIVE_ERROR)
+      {
+        Serial.println("Receive Failed");
+        #ifdef USING_SERIALOTA
+        SerialOTA.println("Receive Failed");
+        #endif
+      }
+      else if (error == OTA_END_ERROR)
+      {
+        Serial.println("End Failed");
+        #ifdef USING_SERIALOTA
+        SerialOTA.println("End Failed");
+        #endif
+      }
     });
   
   ArduinoOTA.begin();
