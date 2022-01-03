@@ -9,7 +9,9 @@
 #define UNIVERSE_SIZE 130         // my setup is 170 leds per universe no matter if the last universe is not full.
 #define USING_LED_BUFFER
 #define FASTLED_ESP32_I2S
-#define ATX_ON 25
+#define ATX_ON_PIN 25
+#define ATX_ON_ENABLED true
+#define MAX_BRIGHTNESS 255
 
 #define CONFIG_FILE_NAME "/config.jsn"
 

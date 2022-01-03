@@ -19,17 +19,21 @@
 #include "I2SClocklessLedDriver.h"
 I2SClocklessLedDriver driver;
 
-//The following has to be adapted to your specifications
-#define NUM_LEDS LED_WIDTH*LED_HEIGHT
-
 //int pins[] = {4, 16, 17, 5, 18, 19, 21, 3, 1};
 int pins[] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};
 volatile int gotFrame = false;
 
 uint8_t *ledsArtnet = NULL;
 
-int maxCurrent = MAX_CURRENT;         // in milliwatts. can be changed later on with mqtt commands. be careful with this one. it might be best to disable this funvtionality altogether
+int maxCurrent = MAX_CURRENT;
+int ledWidth = LED_WIDTH;
+int ledHeight = LED_HEIGHT;
+int numLeds = LED_WIDTH * LED_HEIGHT;
 int universeSize = UNIVERSE_SIZE;
+int atxOnPin = ATX_ON_PIN;
+bool atxOnEnabled = ATX_ON_ENABLED;
+int maxBrightness = MAX_BRIGHTNESS;
+
 
 ArtnetESP32 artnet;
 
@@ -86,14 +90,14 @@ bool loadConfig()
     return false;
   }
 
-  if (configFile.size() > 1024) {
+  if (configFile.size() > 10240) {
     Serial.println("Config file size is too large");
     return false;
   }
 
   // Allocate the memory pool on the stack.
   // Use arduinojson.org/assistant to compute the capacity.
-  StaticJsonDocument<1024> jsonBuffer;
+  StaticJsonDocument<10240> jsonBuffer;
 
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(jsonBuffer, configFile);
@@ -111,6 +115,7 @@ bool loadConfig()
   {
     String stringSsid = jsonBuffer["ssid"];
     stringSsid.toCharArray(primarySsid, 64);
+    primarySsid[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
     Serial.println(String("primarySsid") + " = " + primarySsid);
   }
   
@@ -118,6 +123,7 @@ bool loadConfig()
   {
     String stringPsk = jsonBuffer["psk"];
     stringPsk.toCharArray(primaryPsk, 64);
+    primaryPsk[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
     Serial.println(String("primaryPsk") + " = " + "********");
   }
   
@@ -125,6 +131,7 @@ bool loadConfig()
   {
     String stringPsk = jsonBuffer["hostname"];
     stringPsk.toCharArray(hostname, 64);
+    hostname[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
     Serial.println(String("hostname") + " = " + hostname);
   }
   
@@ -153,8 +160,8 @@ void flipOnAndOf(void* parameter)
   int beenOnFor = 0;
   int beenOffFor = 0;
   delay(2000);
-  pinMode(ATX_ON, OUTPUT);
-  digitalWrite(ATX_ON, 1);
+  pinMode(atxOnPin, OUTPUT);
+  digitalWrite(atxOnPin, 1);
   delay(2000);
   for (;;)
   {
@@ -170,14 +177,14 @@ void flipOnAndOf(void* parameter)
       beenOnFor = 0;
     }
     gotFrame = false;
-    if (beenOffFor == 60)
+    if (beenOffFor == 60)     // we wait a full minute for the artnet signal to return before 
     {
-      digitalWrite(ATX_ON, 1);
+      digitalWrite(atxOnPin, 1);
       Serial.println("ATX_OFF");
     }
-    if (beenOnFor == 20)
+    if (beenOnFor == 1)
     {
-      digitalWrite(ATX_ON, 0);
+      digitalWrite(atxOnPin, 0);
       Serial.println("ATX_ON");
     }
     if (beenOnFor > 10000000) beenOnFor = 10000000;                     // these are here to prevent overflow. useless really but who cares? not me. that was a rhetorical question but whatever.
@@ -214,6 +221,8 @@ void setup()
   primaryPsk[0] = 0; 
   
   loadConfig();
+
+  numLeds = ledWidth * ledHeight;
   
   setupWifi(primarySsid, primaryPsk);
   
@@ -232,7 +241,7 @@ void setup()
   randomSeed(esp_random());
   // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
   
-  ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * NUM_LEDS * 3);
+  ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * numLeds * 3);
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   
   Serial.println("1");
@@ -241,7 +250,7 @@ void setup()
   
   Serial.println("2");
   
-  artnet.begin(NUM_LEDS, universeSize); //configure artnet
+  artnet.begin(numLeds, universeSize); //configure artnet
 
   /*
   artnet.begin(NUM_LEDS, universeSize); //configure artnet
@@ -256,8 +265,8 @@ void setup()
       0); // not core 1
   */
   
-  driver.initled((uint8_t*)ledsArtnet, pins, LED_WIDTH, LED_HEIGHT, ORDER_GRB);
-  driver.setBrightness(255);
+  driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
+  driver.setBrightness(maxBrightness);
   
   Serial.println("3");
   
@@ -271,15 +280,18 @@ void setup()
       0); // not core 1
 
   delay(2000);
-  
-  xTaskCreatePinnedToCore(
-      flipOnAndOf, // Function to implement the task
-      "flipOnAndOf", // Name of the task
-      10000,  // Stack size in words
-      NULL,  // Task input parameter
-      0,  // Priority of the task
-      &task2,  // Task handle.
-      0); // Core where the task should run
+
+  if (atxOnEnabled)
+  {
+      xTaskCreatePinnedToCore(
+          flipOnAndOf, // Function to implement the task
+          "flipOnAndOf", // Name of the task
+          10000,  // Stack size in words
+          NULL,  // Task input parameter
+          0,  // Priority of the task
+          &task2,  // Task handle.
+          0); // Core where the task should run
+  }
   ;
   
   Serial.println("4");
@@ -290,6 +302,6 @@ void setup()
 void loop()
 {
   artnet.readFrame(); //ask to read a full frame
-  driver.setBrightness(limitCurrent(ledsArtnet, NUM_LEDS, MAX_CURRENT, 255));
+  driver.setBrightness(limitCurrent(ledsArtnet, numLeds, maxCurrent, maxBrightness));
   driver.showPixels((uint8_t*)ledsArtnet);
 }
