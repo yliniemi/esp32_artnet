@@ -43,8 +43,10 @@ char primaryPsk[64];
 char hostname[64] = HOSTNAME;
 
 
-class Both
+class PrintSerialAndOTA
 {
+  public:
+  
   template <typename T> void print(T argument)
   {
     Serial.print(argument);
@@ -60,7 +62,17 @@ class Both
     SerialOTA.println(argument);
     #endif
   }
+  
+  void println()
+  {
+    Serial.println();
+    #ifdef USING_SERIALOTA
+    SerialOTA.println();
+    #endif
+  }
 };
+
+PrintSerialAndOTA Both;
 
 
 void displayfunction()
@@ -85,12 +97,8 @@ void debugInfo(void* parameter)
   for (;;)
   {
     delay(60000);
-    Serial.println();
-    Serial.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    #ifdef USING_SERIALOTA
-    SerialOTA.println();
-    SerialOTA.printf("nb frames read: %d  nb of incomplete frames:%d lost:%.2f %%\n\r",artnet.frameslues,artnet.lostframes,(float)(artnet.lostframes*100)/artnet.frameslues);
-    #endif
+    Both.println();
+    Both.print(String("nb frames read: ") + artnet.frameslues + "  nb of incomplete frames: " + artnet.lostframes + "lost: " + (float)(artnet.lostframes*100)/artnet.frameslues + "\n\r");
   }
 }
 
@@ -98,20 +106,20 @@ void debugInfo(void* parameter)
 bool loadConfig()
 {
   //allows serving of files from SPIFFS
-  Serial.println("Mounting FS...");
+  Both.println("Mounting FS...");
   if (!SPIFFS.begin()) {
-    Serial.println("Failed to mount file system");
+    Both.println("Failed to mount file system");
     return false;
   }
 
   File configFile = SPIFFS.open(CONFIG_FILE_NAME, "r");
   if (!configFile) {
-    Serial.println("Failed to open config file");
+    Both.println("Failed to open config file");
     return false;
   }
 
   if (configFile.size() > 10240) {
-    Serial.println("Config file size is too large");
+    Both.println("Config file size is too large");
     return false;
   }
 
@@ -124,8 +132,8 @@ bool loadConfig()
 
   // Test if parsing succeeds.
   if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
+    Both.print(F("deserializeJson() failed: "));
+    Both.println(error.f_str());
     return false;
   }
 
@@ -136,7 +144,7 @@ bool loadConfig()
     String stringSsid = jsonBuffer["ssid"];
     stringSsid.toCharArray(primarySsid, 64);
     primarySsid[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Serial.println(String("primarySsid") + " = " + primarySsid);
+    Both.println(String("primarySsid") + " = " + primarySsid);
   }
   
   if (jsonBuffer.containsKey("psk"))
@@ -144,7 +152,7 @@ bool loadConfig()
     String stringPsk = jsonBuffer["psk"];
     stringPsk.toCharArray(primaryPsk, 64);
     primaryPsk[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Serial.println(String("primaryPsk") + " = " + "********");
+    Both.println(String("primaryPsk") + " = " + "********");
   }
   
   if (jsonBuffer.containsKey("hostname"))
@@ -152,19 +160,19 @@ bool loadConfig()
     String stringPsk = jsonBuffer["hostname"];
     stringPsk.toCharArray(hostname, 64);
     hostname[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Serial.println(String("hostname") + " = " + hostname);
+    Both.println(String("hostname") + " = " + hostname);
   }
   
   if (jsonBuffer.containsKey("maxCurrent"))
   {
     maxCurrent = jsonBuffer["maxCurrent"];
-    Serial.println(String("maxCurrent") + " = " + maxCurrent);
+    Both.println(String("maxCurrent") + " = " + maxCurrent);
   }
   
   if (jsonBuffer.containsKey("universeSize"))
   {
     universeSize = jsonBuffer["universeSize"];
-    Serial.println(String("universeSize") + " = " + universeSize);
+    Both.println(String("universeSize") + " = " + universeSize);
   }
   
   // We don't need the file anymore
@@ -200,12 +208,12 @@ void flipOnAndOf(void* parameter)
     if (beenOffFor == 60)     // we wait a full minute for the artnet signal to return before 
     {
       digitalWrite(atxOnPin, 1);
-      Serial.println("ATX_OFF");
+      Both.println("ATX_OFF");
     }
     if (beenOnFor == 1)
     {
       digitalWrite(atxOnPin, 0);
-      Serial.println("ATX_ON");
+      Both.println("ATX_ON");
     }
     // if (beenOnFor > 10000000) beenOnFor = 10000000;                     // these are here to prevent overflow. useless really but who cares? not me. that was a rhetorical question but whatever.
     // if (beenOffFor > 10000000) beenOffFor = 10000000;
@@ -219,14 +227,14 @@ unsigned int limitCurrent(uint8_t *leds, unsigned int numLeds, unsigned int maxC
   // std::accumulate(&leds[0], &leds[numLeds * 3], sum);
   for (int i = 0; i < numLeds * 3; i++) sum += leds[i];
   unsigned int mA = sum / 13;                   // 765 / 60 = 12.75    765 is 255 * 3 and that is 60 milliamps. from this we know we can get the milliamps by dividing the sum off all leds by 13
-  // Serial.println(mA);
+  // Both.println(mA);
   if (mA > maxCurrent)
   {
     brightness = maxCurrent * 255 / mA;
   }
   if (brightness < maxBrightness)
   {
-    // Serial.println(String("Brightness set to: ") + brightness);
+    // Both.println(String("Brightness set to: ") + brightness);
     return brightness;
   }
   else return maxBrightness;
@@ -235,7 +243,19 @@ unsigned int limitCurrent(uint8_t *leds, unsigned int numLeds, unsigned int maxC
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("Booting");
+
+  #ifdef USING_SERIALOTA
+  xTaskCreatePinnedToCore(
+      handleOTAs, // Function to implement the task
+      "handleOTAs", // Name of the task
+      10000,  // Stack size in words
+      NULL,  // Task input parameter
+      0,  // Priority of the task
+      &task3,  // Task handle.
+      0); // Core where the task should run
+  #endif
+  
+  Both.println("Booting");
 
   primarySsid[0] = 0;
   primaryPsk[0] = 0; 
@@ -246,9 +266,9 @@ void setup()
   
   setupWifi(primarySsid, primaryPsk);
   
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  Both.println("Ready");
+  Both.print("IP address: ");
+  Both.println(WiFi.localIP());
   
   setupOTA(hostname);
   
@@ -256,7 +276,7 @@ void setup()
   setupSerialOTA(hostname);
   #endif
   
-  Serial.println("0");
+  Both.println("0");
     
   randomSeed(esp_random());
   // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
@@ -264,18 +284,18 @@ void setup()
   ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * numLeds * 3);
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   
-  Serial.println("1");
+  Both.println("1");
   
   artnet.setLedsBuffer((uint8_t*)ledsArtnet); //set the buffer to put the frame once a frame has been received
   
-  Serial.println("2");
+  Both.println("2");
   
   artnet.begin(numLeds, universeSize); //configure artnet
 
   driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
   driver.setBrightness(maxBrightness);
   
-  Serial.println("3");
+  Both.println("3");
   
   delay(2000);
 
@@ -300,16 +320,7 @@ void setup()
         &task2,  // Task handle.
         0); // Core where the task should run
   
-  xTaskCreatePinnedToCore(
-        handleOTAs, // Function to implement the task
-        "handleOTAs", // Name of the task
-        10000,  // Stack size in words
-        NULL,  // Task input parameter
-        0,  // Priority of the task
-        &task3,  // Task handle.
-        0); // Core where the task should run
-  
-  Serial.println("4");
+  Both.println("4");
   
   
 }
