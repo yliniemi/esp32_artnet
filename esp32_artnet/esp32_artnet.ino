@@ -14,6 +14,8 @@
 
 #include <ArtnetESP32.h>
 
+// extern String WifiReconnectedAt;
+
 // #include "FastLED.h"
 // FASTLED_USING_NAMESPACE
 #include "I2SClocklessLedDriver.h"
@@ -99,6 +101,7 @@ void debugInfo(void* parameter)
     delay(60000);
     Both.println();
     Both.print(String("nb frames read: ") + artnet.frameslues + "  nb of incomplete frames: " + artnet.lostframes + "lost: " + (float)(artnet.lostframes*100)/artnet.frameslues + "\n\r");
+    printReconnectHistory();
   }
 }
 

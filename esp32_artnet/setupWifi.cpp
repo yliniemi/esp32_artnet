@@ -4,7 +4,7 @@
 char* ssid;
 char* psk;
 
-String reconnectedAt = "";
+String WifiReconnectedAt = "";
 
 TaskHandle_t task;
 
@@ -17,7 +17,7 @@ void reconnectToWifiIfNecessary(void* parameter)
     {
       Serial.println();
       Serial.println("WiFi is disconnected");
-      reconnectedAt += WiFi.status();
+      WifiReconnectedAt += WiFi.status();
 
       for (int i = 0; i < TRY_RECONNECTING && WiFi.status() != WL_CONNECTED; i++)
       {
@@ -25,7 +25,7 @@ void reconnectToWifiIfNecessary(void* parameter)
         Serial.println();
         Serial.println("Trying to reconnect");
         delay(10000);
-        reconnectedAt += WiFi.status();
+        WifiReconnectedAt += WiFi.status();
       }
       
       for (int i = 0; i < TRY_DISCONNECTING && WiFi.status() != WL_CONNECTED; i++)
@@ -38,7 +38,7 @@ void reconnectToWifiIfNecessary(void* parameter)
         Serial.print("Trying to connect to ");
         Serial.println(ssid);
         delay(9000);
-        reconnectedAt += WiFi.status();
+        WifiReconnectedAt += WiFi.status();
       }
       
       if (WiFi.status() != WL_CONNECTED)
@@ -47,7 +47,7 @@ void reconnectToWifiIfNecessary(void* parameter)
         Serial.println("WiFi is gone for good. Giving up. Nothing matters. I hope I can do better in my next life. Rebooting....");
       }
       int time = millis();
-      reconnectedAt += String(" WiFi reconnected at: ") + time / (1000 * 60 * 60) + ":" + time / (1000 * 60) % 60 + ":" + time / 1000 % 60 + "\r\n";
+      WifiReconnectedAt += String(" WiFi reconnected at: ") + time / (1000 * 60 * 60) + ":" + time / (1000 * 60) % 60 + ":" + time / 1000 % 60 + "\r\n";
       void printReconnectHistory();
     }
   }
@@ -55,7 +55,12 @@ void reconnectToWifiIfNecessary(void* parameter)
 
 void printReconnectHistory()
 {
-  Serial.println(reconnectedAt);
+  Serial.println();
+  Serial.println(WifiReconnectedAt);
+  #ifdef USING_SERIALOTA
+  SerialOTA.println();
+  SerialOTA.println(WifiReconnectedAt);
+  #endif
 }
 
 void setupWifi(char* primarySsid, char* primaryPsk)
