@@ -95,8 +95,8 @@ void debugInfo(void* parameter)
 }
 
 
-// template <typename T1, T2>
-void readBuffer(DynamicJsonDocument jsonBuffer, char* name, int variable)
+template <typename T1, typename T2>
+void readBuffer(DynamicJsonDocument jsonBuffer, T1& name, T2& variable)
 {
   if (jsonBuffer.containsKey(name))
   {
