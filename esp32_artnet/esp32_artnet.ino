@@ -194,9 +194,11 @@ bool loadConfig()
   if (jsonBuffer.containsKey("ledWidth"))
   {
     OTArounds = jsonBuffer["ledWidth"];
-    Both.println(String("ledWidth") + " = " + OTArounds);
+    DynamicJsonDocument jsonBuffer + " = " + OTArounds);
   }
   */
+
+  // Both.println(String("universeSize = ") + universeSize);
 
   readBuffer(jsonBuffer, "ledWidth", ledWidth);
   readBuffer(jsonBuffer, "ledHeight", ledHeight);
@@ -206,6 +208,8 @@ bool loadConfig()
   readBuffer(jsonBuffer, "atxOnEnabled", atxOnEnabled);
   readBuffer(jsonBuffer, "atxOnPin", atxOnPin);
   readBuffer(jsonBuffer, "OTArounds", OTArounds);
+
+  // Both.println(String("universeSize = ") + universeSize);
   
   // We don't need the file anymore
   
