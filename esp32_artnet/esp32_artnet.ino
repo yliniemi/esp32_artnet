@@ -25,17 +25,6 @@ volatile int gotFrame = false;
 
 uint8_t *ledsArtnet = NULL;
 
-int maxCurrent = MAX_CURRENT;
-int ledWidth = LED_WIDTH;
-int ledHeight = LED_HEIGHT;
-int numLeds = LED_WIDTH * LED_HEIGHT;
-int universeSize = UNIVERSE_SIZE;
-int atxOnPin = ATX_ON_PIN;
-bool atxOnEnabled = ATX_ON_ENABLED;
-int maxBrightness = MAX_BRIGHTNESS;
-
-int pins[] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};
-
 ArtnetESP32 artnet;
 
 TaskHandle_t task1, task2, task3;
@@ -106,9 +95,26 @@ void debugInfo(void* parameter)
 }
 
 
+// template <typename T1, T2>
+void readBuffer(DynamicJsonDocument jsonBuffer, char* name, int variable)
+{
+  if (jsonBuffer.containsKey(name))
+  {
+    variable = jsonBuffer[name];
+    Both.println(String(name) + " = " + variable);
+  }
+  else
+  {
+    Both.println(String(name) + " not found");
+  }
+}
+  
+
 bool loadConfig()
 {
   //allows serving of files from SPIFFS
+
+  const int maxFileSize = 4096;
   Both.println("Mounting FS...");
   if (!SPIFFS.begin()) {
     Both.println("Failed to mount file system");
@@ -121,14 +127,14 @@ bool loadConfig()
     return false;
   }
 
-  if (configFile.size() > 10240) {
+  if (configFile.size() > maxFileSize) {
     Both.println("Config file size is too large");
     return false;
   }
 
   // Allocate the memory pool on the stack.
   // Use arduinojson.org/assistant to compute the capacity.
-  StaticJsonDocument<10240> jsonBuffer;
+  DynamicJsonDocument jsonBuffer(maxFileSize);
 
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(jsonBuffer, configFile);
@@ -166,6 +172,7 @@ bool loadConfig()
     Both.println(String("hostname") + " = " + hostname);
   }
   
+  /*
   if (jsonBuffer.containsKey("maxCurrent"))
   {
     maxCurrent = jsonBuffer["maxCurrent"];
@@ -177,6 +184,28 @@ bool loadConfig()
     universeSize = jsonBuffer["universeSize"];
     Both.println(String("universeSize") + " = " + universeSize);
   }
+  
+  if (jsonBuffer.containsKey("OTArounds"))
+  {
+    OTArounds = jsonBuffer["OTArounds"];
+    Both.println(String("OTArounds") + " = " + OTArounds);
+  }
+  
+  if (jsonBuffer.containsKey("ledWidth"))
+  {
+    OTArounds = jsonBuffer["ledWidth"];
+    Both.println(String("ledWidth") + " = " + OTArounds);
+  }
+  */
+
+  readBuffer(jsonBuffer, "ledWidth", ledWidth);
+  readBuffer(jsonBuffer, "ledHeight", ledHeight);
+  readBuffer(jsonBuffer, "universeSize", universeSize);
+  readBuffer(jsonBuffer, "maxCurrent", maxCurrent);
+  readBuffer(jsonBuffer, "maxBrightness", maxBrightness);
+  readBuffer(jsonBuffer, "atxOnEnabled", atxOnEnabled);
+  readBuffer(jsonBuffer, "atxOnPin", atxOnPin);
+  readBuffer(jsonBuffer, "OTArounds", OTArounds);
   
   // We don't need the file anymore
   
@@ -247,6 +276,27 @@ void setup()
 {
   Serial.begin(115200);
 
+  Both.println("Booting");
+
+  primarySsid[0] = 0;
+  primaryPsk[0] = 0; 
+  
+  loadConfig();
+
+  numLeds = ledWidth * ledHeight;           // this has to be done after loading config
+  
+  setupWifi(primarySsid, primaryPsk);
+  
+  Both.println("Ready");
+  Both.print("IP address: ");
+  Both.println(WiFi.localIP());
+  
+  setupOTA(hostname, OTA_PASSWORD, OTArounds);
+  
+  #ifdef USING_SERIALOTA
+  setupSerialOTA(hostname);
+  #endif
+  
   #ifdef USING_SERIALOTA
   xTaskCreatePinnedToCore(
       handleOTAs, // Function to implement the task
@@ -256,27 +306,6 @@ void setup()
       0,  // Priority of the task
       &task3,  // Task handle.
       0); // Core where the task should run
-  #endif
-  
-  Both.println("Booting");
-
-  primarySsid[0] = 0;
-  primaryPsk[0] = 0; 
-  
-  loadConfig();
-
-  numLeds = ledWidth * ledHeight;
-  
-  setupWifi(primarySsid, primaryPsk);
-  
-  Both.println("Ready");
-  Both.print("IP address: ");
-  Both.println(WiFi.localIP());
-  
-  setupOTA(hostname);
-  
-  #ifdef USING_SERIALOTA
-  setupSerialOTA(hostname);
   #endif
   
   Both.println("0");

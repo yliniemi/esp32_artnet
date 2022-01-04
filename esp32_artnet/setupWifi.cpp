@@ -1,6 +1,9 @@
 #define SETUPWIFI_CPP
 #include "setupWifi.h"
 
+#define TRY_RECONNECTING 5      // when losing wifi try WiFi.reconnect() this many time
+#define TRY_DISCONNECTING 25    // if reconnecting doesn't work try first disconnecting and then doing WiFi.begin()
+
 char* ssid;
 char* psk;
 

@@ -1,11 +1,10 @@
 #ifndef OTA_H
 #define OTA_H
 
-#include <myCredentials.h>
-// #include "settings.h"
-
 #include <ArduinoOTA.h>
 
-void setupOTA(char* hostname);
+void setupOTA(char* hostname, char* password, int OTArounds);
+
+void setupOTA(char* hostname, char* password);
 
 #endif

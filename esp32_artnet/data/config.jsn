@@ -2,7 +2,13 @@
 	"ssid": "placeholderAP",
 	"psk": "placeholderPassword",
 	"hostname": "esp32 artnet",
-	"universeSize": 144,
+	"universeSize": 130,
 	"OTArounds": 3,
-	"maxCurrent": 4000
+	"ledWidth": 1,
+	"ledHeight": 130,
+	"maxBrightness": 255,
+	"atxOnEnabled": true,
+	"atxOnPin": 25,
+	"maxCurrent": 4000,
+	"pins": {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2}
 }

@@ -1,7 +1,7 @@
 #include "OTA.h"
 
 
-void setupOTA(char* hostname)
+void setupOTA(char* hostname, char* password, int OTArounds)
 {
   // Port defaults to 3232
   // ArduinoOTA.setPort(3232);
@@ -10,7 +10,7 @@ void setupOTA(char* hostname)
   // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
   // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
   
-  ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.setPassword(password);
   ArduinoOTA.setHostname(hostname);
   ArduinoOTA
     .onStart([]() {
@@ -90,13 +90,18 @@ void setupOTA(char* hostname)
   ArduinoOTA.begin();
   
   // this loop is here so that if your program freezes you can still update over the air
-  for (int i = 1; i < OTA_ROUNDS; i++)
+  for (int i = 1; i < OTArounds; i++)
   {
     Serial.print(i);
     Serial.print("/");
-    Serial.print(OTA_ROUNDS);
+    Serial.print(OTArounds);
     Serial.println(" round of initial OTA");
     ArduinoOTA.handle();
     delay(1000);
   }
+}
+
+void setupOTA(char* hostname, char* password)
+{
+  setupOTA(hostname, password, 0);
 }

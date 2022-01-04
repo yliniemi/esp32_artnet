@@ -2,7 +2,6 @@
 #define SETUPWIFI_H
 
 #include <myCredentials.h>
-// #include "settings.h"
 
 #include <WiFi.h>
 
