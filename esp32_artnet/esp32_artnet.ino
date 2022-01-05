@@ -12,6 +12,8 @@
 #include <SPIFFS.h>
 #include <ArduinoJson.h>
 
+// #define ARTNET_NO_TIMEOUT
+#define ARTNET_ESP32_DEBUG_DISABLED
 #include <ArtnetESP32.h>
 
 // extern String WifiReconnectedAt;
@@ -66,6 +68,203 @@ class PrintSerialAndOTA
 PrintSerialAndOTA Both;
 
 
+bool saveConfig()
+{
+  //allows serving of files from SPIFFS
+  
+  Both.println("Mounting FS...");
+  if (!SPIFFS.begin()) {
+    Both.println("Failed to mount file system");
+    return false;
+  }
+
+  File configFile = SPIFFS.open(CONFIG_FILE_NAME, FILE_WRITE);
+  if (!configFile) {
+    Both.println("Failed to open config file");
+    return false;
+  }
+
+  if (configFile.size() > maxFileSize) {
+    Both.println("Config file size is too large");
+    return false;
+  }
+
+  // Allocate the memory pool on the heap.
+  // Use arduinojson.org/assistant to compute the capacity.
+  DynamicJsonDocument jsonBuffer(maxFileSize);
+  
+  jsonBuffer["ledWidth"] = ledWidth;
+  jsonBuffer["ledHeight"] = ledHeight;
+  jsonBuffer["universeSize"] = universeSize;
+  jsonBuffer["maxCurrent"] = maxCurrent;
+  jsonBuffer["maxBrightness"] = maxBrightness;
+  jsonBuffer["atxOnEnabled"] = atxOnEnabled;
+  jsonBuffer["atxOnPin"] = atxOnPin;
+  jsonBuffer["turnOffDelay"] = turnOffDelay;
+  jsonBuffer["OTArounds"] = OTArounds;
+  jsonBuffer["hostname"] = String(hostname);
+  jsonBuffer["ssid"] = String(primarySsid);
+  
+  serializeJsonPretty(jsonBuffer, Serial);
+  Serial.println();
+  
+  jsonBuffer["psk"] = String(primaryPsk);
+  serializeJson(jsonBuffer, configFile);
+
+  // We don't need the file anymore
+  
+  configFile.close();
+
+  return true;
+}
+
+void changeSettings(void* parameter)
+{
+  String s;
+  delay(10000);
+  for (;;)
+  {
+    Serial.setTimeout(1000000000);                 // normally readStringUntil waits only a second
+    Serial.println();
+    Serial.println("If you want to change the settings type 'settings'");
+    s = Serial.readStringUntil('\n');
+    Serial.println(String("You typed: " + s));
+    if (s.equals("settings"))
+    {
+      Serial.println("You are now in settings mode");
+      Serial.println("When you're done making changes and want to save them on the flash rom type 'save'");
+      Serial.println("If you made a mistake, you can cancel it by typing 'cancel'");
+      Serial.println();
+      Serial.println("Here is a list of all the options and their current values");
+      Serial.println(String("ledWidth = ") + ledWidth);
+      Serial.println(String("ledHeight = ") + ledHeight);
+      Serial.println(String("universeSize = ") + universeSize);
+      Serial.println(String("maxCurrent = ") + maxCurrent);
+      Serial.println(String("maxBrightness = ") + maxBrightness);
+      Serial.println(String("atxOnEnabled = ") + atxOnEnabled);
+      Serial.println(String("atxOnPin = ") + atxOnPin);
+      Serial.println(String("turnOffDelay = ") + turnOffDelay);
+      Serial.println(String("OTArounds = ") + OTArounds);
+      Serial.println(String("hostname = ") + hostname);
+      Serial.println(String("ssid = ") + primarySsid);
+      Serial.println(String("psk = ") + primaryPsk);
+
+      for (;;)
+      {
+        Serial.println();
+        Serial.println("Please type a variable name");
+        s = Serial.readStringUntil('\n');
+        Serial.println(String("You typed: " + s));
+        
+        if (s.equals("save"))
+        {
+          Serial.println("Saving your settings to the flash rom");
+          saveConfig();
+          break;
+        }
+        
+        else if (s.equals("cancel"))
+        {
+          Serial.println("Cancelled saving the settings");
+          Serial.println("Settings on ram are still changed. If you want to revert back to the old settings please reboot");
+          break;
+        }
+        
+        else if (s.equals("ssid"))
+        {
+          s = Serial.readStringUntil('\n');
+          s.toCharArray(primarySsid, 64);
+          Serial.println(String("ssid = ") + primarySsid);
+        }
+        
+        else if (s.equals("psk"))
+        {
+          s = Serial.readStringUntil('\n');
+          s.toCharArray(primaryPsk, 64);
+          Serial.println(String("primaryPsk = ") + primaryPsk);
+        }
+        
+        else if (s.equals("hostname"))
+        {
+          s = Serial.readStringUntil('\n');
+          s.toCharArray(hostname, 64);
+          Serial.println(String("hostname = ") + hostname);
+        }
+        
+        else if (s.equals("ledWidth"))
+        {
+          s = Serial.readStringUntil('\n');
+          ledWidth = s.toInt();
+          Serial.println(String("ledWidth = ") + ledWidth);
+        }
+        
+        else if (s.equals("ledHeight"))
+        {
+          s = Serial.readStringUntil('\n');
+          ledHeight = s.toInt();
+          Serial.println(String("ledHeight = ") + ledHeight);
+        }
+        
+        else if (s.equals("universeSize"))
+        {
+          s = Serial.readStringUntil('\n');
+          universeSize = s.toInt();
+          Serial.println(String("universeSize = ") + universeSize);
+        }
+        
+        else if (s.equals("maxCurrent"))
+        {
+          s = Serial.readStringUntil('\n');
+          maxCurrent = s.toInt();
+          Serial.println(String("maxCurrent = ") + maxCurrent);
+        }
+        
+        else if (s.equals("maxBrightness"))
+        {
+          s = Serial.readStringUntil('\n');
+          maxBrightness = s.toInt();
+          Serial.println(String("maxBrightness = ") + maxBrightness);
+        }
+        
+        else if (s.equals("atxOnEnabled"))
+        {
+          s = Serial.readStringUntil('\n');
+          if (s.equals("true") || s.equals("1")) atxOnEnabled = true;
+          else atxOnEnabled = false;
+          Serial.println(String("atxOnEnabled = ") + atxOnEnabled);
+        }
+        
+        else if (s.equals("atxOnPin"))
+        {
+          s = Serial.readStringUntil('\n');
+          atxOnPin = s.toInt();
+          Serial.println(String("atxOnPin = ") + atxOnPin);
+        }
+        
+        else if (s.equals("turnOffDelay"))
+        {
+          s = Serial.readStringUntil('\n');
+          turnOffDelay = s.toInt();
+          Serial.println(String("turnOffDelay = ") + turnOffDelay);
+        }
+        
+        else if (s.equals("OTArounds"))
+        {
+          s = Serial.readStringUntil('\n');
+          OTArounds = s.toInt();
+          Serial.println(String("OTArounds = ") + OTArounds);
+        }
+        
+        else Serial.println("Unknown variable name");
+        Serial.println();
+        Serial.println();
+      }
+    }
+    else Serial.println("Ah ah aah, you didn't say the magic word");
+  }
+}
+
+
 void displayfunction()
 {  
   gotFrame = true;
@@ -89,7 +288,7 @@ void debugInfo(void* parameter)
   {
     delay(60000);
     Both.println();
-    Both.print(String("nb frames read: ") + artnet.frameslues + "  nb of incomplete frames: " + artnet.lostframes + "lost: " + (float)(artnet.lostframes*100)/artnet.frameslues + "\n\r");
+    Both.print(String("nb frames read: ") + artnet.frameslues + " nb of incomplete frames: " + artnet.lostframes + " lost: " + (float)(artnet.lostframes*100)/artnet.frameslues + "\n\r");
     printReconnectHistory();
   }
 }
@@ -114,7 +313,6 @@ bool loadConfig()
 {
   //allows serving of files from SPIFFS
 
-  const int maxFileSize = 4096;
   Both.println("Mounting FS...");
   if (!SPIFFS.begin()) {
     Both.println("Failed to mount file system");
@@ -132,7 +330,7 @@ bool loadConfig()
     return false;
   }
 
-  // Allocate the memory pool on the stack.
+  // Allocate the memory pool on the heap.
   // Use arduinojson.org/assistant to compute the capacity.
   DynamicJsonDocument jsonBuffer(maxFileSize);
 
@@ -172,34 +370,6 @@ bool loadConfig()
     Both.println(String("hostname") + " = " + hostname);
   }
   
-  /*
-  if (jsonBuffer.containsKey("maxCurrent"))
-  {
-    maxCurrent = jsonBuffer["maxCurrent"];
-    Both.println(String("maxCurrent") + " = " + maxCurrent);
-  }
-  
-  if (jsonBuffer.containsKey("universeSize"))
-  {
-    universeSize = jsonBuffer["universeSize"];
-    Both.println(String("universeSize") + " = " + universeSize);
-  }
-  
-  if (jsonBuffer.containsKey("OTArounds"))
-  {
-    OTArounds = jsonBuffer["OTArounds"];
-    Both.println(String("OTArounds") + " = " + OTArounds);
-  }
-  
-  if (jsonBuffer.containsKey("ledWidth"))
-  {
-    OTArounds = jsonBuffer["ledWidth"];
-    DynamicJsonDocument jsonBuffer + " = " + OTArounds);
-  }
-  */
-
-  // Both.println(String("universeSize = ") + universeSize);
-
   readBuffer(jsonBuffer, "ledWidth", ledWidth);
   readBuffer(jsonBuffer, "ledHeight", ledHeight);
   readBuffer(jsonBuffer, "universeSize", universeSize);
@@ -207,10 +377,9 @@ bool loadConfig()
   readBuffer(jsonBuffer, "maxBrightness", maxBrightness);
   readBuffer(jsonBuffer, "atxOnEnabled", atxOnEnabled);
   readBuffer(jsonBuffer, "atxOnPin", atxOnPin);
+  readBuffer(jsonBuffer, "turnOffDelay", turnOffDelay);
   readBuffer(jsonBuffer, "OTArounds", OTArounds);
 
-  // Both.println(String("universeSize = ") + universeSize);
-  
   // We don't need the file anymore
   
   configFile.close();
@@ -241,7 +410,7 @@ void flipOnAndOf(void* parameter)
       beenOnFor = 0;
     }
     gotFrame = false;
-    if (beenOffFor == 60)     // we wait a full minute for the artnet signal to return before 
+    if (beenOffFor == turnOffDelay)     // we wait a full minute for the artnet signal to return before 
     {
       digitalWrite(atxOnPin, 1);
       Both.println("ATX_OFF");
@@ -311,6 +480,18 @@ void setup()
       &task3,  // Task handle.
       0); // Core where the task should run
   #endif
+
+  
+  xTaskCreatePinnedToCore(
+        changeSettings, // Function to implement the task
+        "changeSettings", // Name of the task
+        10000,  // Stack size in words
+        NULL,  // Task input parameter
+        0,  // Priority of the task
+        &task3,  // Task handle.
+        0); // Core where the task should run
+    
+  //changeSettings();
   
   Both.println("0");
     
@@ -355,8 +536,9 @@ void setup()
         0,  // Priority of the task
         &task2,  // Task handle.
         0); // Core where the task should run
-  
-  Both.println("4");
+    
+  Both.println(FILE_WRITE);
+  Both.println(FILE_READ);
   
   
 }
