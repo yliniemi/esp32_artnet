@@ -4,8 +4,8 @@
 #define TRY_RECONNECTING 5      // when losing wifi try WiFi.reconnect() this many time
 #define TRY_DISCONNECTING 25    // if reconnecting doesn't work try first disconnecting and then doing WiFi.begin()
 
-char* ssid;
-char* psk;
+char* currentSsid;
+char* currentPsk;
 
 String WifiReconnectedAt = "";
 
@@ -36,10 +36,10 @@ void reconnectToWifiIfNecessary(void* parameter)
         WiFi.disconnect();
         delay(1000);
         WiFi.mode(WIFI_STA);
-        WiFi.begin(ssid, psk);
+        WiFi.begin(currentSsid, currentPsk);
         Serial.println();
         Serial.print("Trying to connect to ");
-        Serial.println(ssid);
+        Serial.println(currentSsid);
         delay(9000);
         WifiReconnectedAt += WiFi.status();
       }
@@ -73,13 +73,13 @@ void setupWifi(char* primarySsid, char* primaryPsk)
   {
     WiFi.disconnect();
     delay(500);
-    ssid = primarySsid;
-    psk = primaryPsk;
+    currentSsid = primarySsid;
+    currentPsk = primaryPsk;
     WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, psk);
+    WiFi.begin(currentSsid, currentPsk);
     Serial.println();
     Serial.print("Trying to connect to ");
-    Serial.println(ssid);
+    Serial.println(currentSsid);
     delay(5000);
   }
   
@@ -87,13 +87,13 @@ void setupWifi(char* primarySsid, char* primaryPsk)
   {
     WiFi.disconnect();
     delay(500);
-    ssid = wifiArray[i][0];
-    psk = wifiArray[i][1];
+    currentSsid = wifiArray[i][0];
+    currentPsk = wifiArray[i][1];
     WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, psk);
+    WiFi.begin(currentSsid, currentPsk);
     Serial.println();
     Serial.print("Trying to connect to ");
-    Serial.println(ssid);
+    Serial.println(currentSsid);
     delay(5000);
   }
   
@@ -106,7 +106,7 @@ void setupWifi(char* primarySsid, char* primaryPsk)
   }
 
   Serial.print("Connection to ");
-  Serial.print(ssid);
+  Serial.print(currentSsid);
   Serial.println(" succeeded!");
   // WiFi.setAutoReconnect(true);  // this didn't work well enough. i had to do this another way
   WiFi.persistent(false);          // we don't want to save the credentials on the internal filessytem of the esp32

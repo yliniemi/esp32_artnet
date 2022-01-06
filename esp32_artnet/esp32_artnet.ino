@@ -8,8 +8,14 @@
 #include "SerialOTA.h"
 #endif
 
-#include <FS.h>
+// #define USING_SPIFFS          // this is commented because we live inthe future. uncomment if you need spiffs for compatibility reasons
+#ifdef USING_SPIFFS
 #include <SPIFFS.h>
+#endif
+#ifndef USING_SPIFFS
+#include <LITTLEFS.h>
+#endif
+
 #include <ArduinoJson.h>
 
 // #define ARTNET_NO_TIMEOUT
@@ -30,10 +36,6 @@ uint8_t *ledsArtnet = NULL;
 ArtnetESP32 artnet;
 
 TaskHandle_t task1, task2, task3;
-
-char primarySsid[64];
-char primaryPsk[64];
-char hostname[64] = HOSTNAME;
 
 
 class PrintSerialAndOTA
@@ -70,15 +72,24 @@ PrintSerialAndOTA Both;
 
 bool saveConfig()
 {
-  //allows serving of files from SPIFFS
-  
-  Both.println("Mounting FS...");
-  if (!SPIFFS.begin()) {
+  Both.println("Mounting filesystem for writing");
+  #ifdef USING_SPIFFS
+  if (!SPIFFS.begin())
+  #endif
+  #ifndef USING_SPIFFS
+  if (!LITTLEFS.begin())
+  #endif
+  {
     Both.println("Failed to mount file system");
     return false;
   }
 
+  #ifdef USING_SPIFFS
   File configFile = SPIFFS.open(CONFIG_FILE_NAME, FILE_WRITE);
+  #endif
+  #ifndef USING_SPIFFS
+  File configFile = LITTLEFS.open(CONFIG_FILE_NAME, FILE_WRITE);
+  #endif
   if (!configFile) {
     Both.println("Failed to open config file");
     return false;
@@ -103,12 +114,12 @@ bool saveConfig()
   jsonBuffer["turnOffDelay"] = turnOffDelay;
   jsonBuffer["OTArounds"] = OTArounds;
   jsonBuffer["hostname"] = String(hostname);
-  jsonBuffer["ssid"] = String(primarySsid);
+  jsonBuffer["ssid"] = String(ssid);
   
   serializeJsonPretty(jsonBuffer, Serial);
   Serial.println();
   
-  jsonBuffer["psk"] = String(primaryPsk);
+  jsonBuffer["psk"] = String(psk);
   serializeJson(jsonBuffer, configFile);
 
   // We don't need the file anymore
@@ -118,22 +129,29 @@ bool saveConfig()
   return true;
 }
 
-void changeSettings(void* parameter)
+void changeSettings()
 {
   String s;
-  delay(10000);
-  for (;;)
   {
-    Serial.setTimeout(1000000000);                 // normally readStringUntil waits only a second
+    Serial.setTimeout(5000);                 // normally readStringUntil waits only a second
     Serial.println();
-    Serial.println("If you want to change the settings type 'settings'");
+    Serial.println("If you want load your current settings and edit them type 'edit'");
+    Serial.println("If there is a problem and you don't want to load the config file type 'set'");
+    Serial.println("You have 5 seconds to comply");
     s = Serial.readStringUntil('\n');
     Serial.println(String("You typed: " + s));
-    if (s.equals("settings"))
+    if (s.equals("set") || s.equals("edit"))
     {
+      Serial.setTimeout(1000000000);                 // normally readStringUntil waits only a second
+      if (s.equals("edit"))
+      {
+        loadConfig();
+      }
       Serial.println("You are now in settings mode");
       Serial.println("When you're done making changes and want to save them on the flash rom type 'save'");
       Serial.println("If you made a mistake, you can cancel it by typing 'cancel'");
+      Serial.println("If you want to format the filesystem type 'format'");
+      Serial.println("To reboot type, you guessed it, 'reboot'");
       Serial.println();
       Serial.println("Here is a list of all the options and their current values");
       Serial.println(String("ledWidth = ") + ledWidth);
@@ -146,13 +164,13 @@ void changeSettings(void* parameter)
       Serial.println(String("turnOffDelay = ") + turnOffDelay);
       Serial.println(String("OTArounds = ") + OTArounds);
       Serial.println(String("hostname = ") + hostname);
-      Serial.println(String("ssid = ") + primarySsid);
-      Serial.println(String("psk = ") + primaryPsk);
+      Serial.println(String("ssid = ") + ssid);
+      Serial.println(String("psk = ") + psk);
 
       for (;;)
       {
         Serial.println();
-        Serial.println("Please type a variable name");
+        Serial.println("Please type a variable name or a command");
         s = Serial.readStringUntil('\n');
         Serial.println(String("You typed: " + s));
         
@@ -160,28 +178,48 @@ void changeSettings(void* parameter)
         {
           Serial.println("Saving your settings to the flash rom");
           saveConfig();
-          break;
+          Serial.println("Saving complete. Rebooting in 5 seconds");
+          delay(5000);
+          ESP.restart();
         }
         
         else if (s.equals("cancel"))
         {
           Serial.println("Cancelled saving the settings");
-          Serial.println("Settings on ram are still changed. If you want to revert back to the old settings please reboot");
+          Serial.println("Continuing with normal boot");
           break;
+        }
+        
+        else if (s.equals("format"))
+        {
+          Serial.println("Formatting the filesystem");
+          #ifdef USING_SPIFFS
+          SPIFFS.format();
+          #endif
+          #ifndef USING_SPIFFS
+          LITTLEFS.format();
+          #endif
+        }
+        
+        else if (s.equals("reboot"))
+        {
+          Serial.println("Rebooting in 5 seconds");
+          delay(5000);
+          ESP.restart();
         }
         
         else if (s.equals("ssid"))
         {
           s = Serial.readStringUntil('\n');
-          s.toCharArray(primarySsid, 64);
-          Serial.println(String("ssid = ") + primarySsid);
+          s.toCharArray(ssid, 64);
+          Serial.println(String("ssid = ") + ssid);
         }
         
         else if (s.equals("psk"))
         {
           s = Serial.readStringUntil('\n');
-          s.toCharArray(primaryPsk, 64);
-          Serial.println(String("primaryPsk = ") + primaryPsk);
+          s.toCharArray(psk, 64);
+          Serial.println(String("psk = ") + psk);
         }
         
         else if (s.equals("hostname"))
@@ -256,8 +294,6 @@ void changeSettings(void* parameter)
         }
         
         else Serial.println("Unknown variable name");
-        Serial.println();
-        Serial.println();
       }
     }
     else Serial.println("Ah ah aah, you didn't say the magic word");
@@ -288,7 +324,7 @@ void debugInfo(void* parameter)
   {
     delay(60000);
     Both.println();
-    Both.print(String("nb frames read: ") + artnet.frameslues + " nb of incomplete frames: " + artnet.lostframes + " lost: " + (float)(artnet.lostframes*100)/artnet.frameslues + "\n\r");
+    Both.print(String(artnet.frameslues) + " frames read, " + artnet.lostframes + " incomplete frames, lost: " + (float)(artnet.lostframes*100)/(artnet.frameslues + artnet.lostframes) + " %\n\r");
     printReconnectHistory();
   }
 }
@@ -311,15 +347,24 @@ void readBuffer(DynamicJsonDocument jsonBuffer, T1& name, T2& variable)
 
 bool loadConfig()
 {
-  //allows serving of files from SPIFFS
-
-  Both.println("Mounting FS...");
-  if (!SPIFFS.begin()) {
+  Both.println("Mounting filesystem for reading");
+  #ifdef USING_SPIFFS
+  if (!SPIFFS.begin())
+  #endif
+  #ifndef USING_SPIFFS
+  if (!LITTLEFS.begin())
+  #endif
+  {
     Both.println("Failed to mount file system");
     return false;
   }
 
-  File configFile = SPIFFS.open(CONFIG_FILE_NAME, "r");
+  #ifdef USING_SPIFFS
+  File configFile = SPIFFS.open(CONFIG_FILE_NAME, FILE_READ);
+  #endif
+  #ifndef USING_SPIFFS
+  File configFile = LITTLEFS.open(CONFIG_FILE_NAME, FILE_READ);
+  #endif
   if (!configFile) {
     Both.println("Failed to open config file");
     return false;
@@ -349,17 +394,17 @@ bool loadConfig()
   if (jsonBuffer.containsKey("ssid"))
   {
     String stringSsid = jsonBuffer["ssid"];
-    stringSsid.toCharArray(primarySsid, 64);
-    primarySsid[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Both.println(String("primarySsid") + " = " + primarySsid);
+    stringSsid.toCharArray(ssid, 64);
+    ssid[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
+    Both.println(String("ssid") + " = " + ssid);
   }
   
   if (jsonBuffer.containsKey("psk"))
   {
     String stringPsk = jsonBuffer["psk"];
-    stringPsk.toCharArray(primaryPsk, 64);
-    primaryPsk[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Both.println(String("primaryPsk") + " = " + "********");
+    stringPsk.toCharArray(psk, 64);
+    psk[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
+    Both.println(String("psk") + " = " + "********");
   }
   
   if (jsonBuffer.containsKey("hostname"))
@@ -448,21 +493,22 @@ unsigned int limitCurrent(uint8_t *leds, unsigned int numLeds, unsigned int maxC
 void setup()
 {
   Serial.begin(115200);
-
+  
   Both.println("Booting");
 
-  primarySsid[0] = 0;
-  primaryPsk[0] = 0; 
+  changeSettings();
   
   loadConfig();
-
+  
   numLeds = ledWidth * ledHeight;           // this has to be done after loading config
   
-  setupWifi(primarySsid, primaryPsk);
+  setupWifi(ssid, psk);
   
   Both.println("Ready");
   Both.print("IP address: ");
   Both.println(WiFi.localIP());
+  Both.print("MAC Address: ");
+  Both.println(WiFi.macAddress());
   
   setupOTA(hostname, OTA_PASSWORD, OTArounds);
   
@@ -480,8 +526,8 @@ void setup()
       &task3,  // Task handle.
       0); // Core where the task should run
   #endif
-
   
+  /*
   xTaskCreatePinnedToCore(
         changeSettings, // Function to implement the task
         "changeSettings", // Name of the task
@@ -490,32 +536,25 @@ void setup()
         0,  // Priority of the task
         &task3,  // Task handle.
         0); // Core where the task should run
-    
+  */
+  
   //changeSettings();
   
-  Both.println("0");
-    
   randomSeed(esp_random());
   // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
   
   ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * numLeds * 3);
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
   
-  Both.println("1");
-  
   artnet.setLedsBuffer((uint8_t*)ledsArtnet); //set the buffer to put the frame once a frame has been received
-  
-  Both.println("2");
-  
+    
   artnet.begin(numLeds, universeSize); //configure artnet
-
+  
   driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
   driver.setBrightness(maxBrightness);
-  
-  Both.println("3");
-  
+    
   delay(2000);
-
+  
   if (atxOnEnabled)
   {
       xTaskCreatePinnedToCore(
@@ -536,10 +575,6 @@ void setup()
         0,  // Priority of the task
         &task2,  // Task handle.
         0); // Core where the task should run
-    
-  Both.println(FILE_WRITE);
-  Both.println(FILE_READ);
-  
   
 }
 

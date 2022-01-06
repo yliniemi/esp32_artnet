@@ -90,7 +90,7 @@ void setupOTA(char* hostname, char* password, int OTArounds)
   ArduinoOTA.begin();
   
   // this loop is here so that if your program freezes you can still update over the air
-  for (int i = 1; i < OTArounds; i++)
+  for (int i = 1; i <= OTArounds; i++)
   {
     Serial.print(i);
     Serial.print("/");

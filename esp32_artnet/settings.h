@@ -1,8 +1,6 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#define HOSTNAME "LEDwall"        // replace this with the name for this particular device. everyone deserves a unique name
-
 #define CONFIG_FILE_NAME "/config.jsn"
 
 #define USING_SERIALOTA           // uncomment this if you are not using SerialOTA
@@ -22,6 +20,10 @@ int OTArounds = 30;             // this is how many seconds we waste waiting for
 int pins[64] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};              // this is the pinout for Elina's version
 // maybe include a possible static ip hare
 
-const int maxFileSize = 4096;
+char ssid[64] = "";
+char psk[64] = "";
+char hostname[64] = "LEDwall";
+
+const int maxFileSize = 10240;
 
 #endif
