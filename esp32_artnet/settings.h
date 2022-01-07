@@ -26,6 +26,8 @@ char hostname[64] = "LEDwall";
 
 const int maxFileSize = 10240;
 
-
-
+bool staticIpEnabled = false;
+int ip[] = {192, 168, 69, 123};
+int gateway[] = {192, 168, 69, 1};
+int mask [] = {255, 255, 255, 0};
 #endif

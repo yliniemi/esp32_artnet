@@ -107,6 +107,7 @@ bool saveConfig()
   jsonBuffer["turnOffDelay"] = turnOffDelay;
   jsonBuffer["OTArounds"] = OTArounds;
   jsonBuffer["hostname"] = String(hostname);
+  jsonBuffer["staticIpEnabled"] = staticIpEnabled;
   jsonBuffer["ssid"] = String(ssid);
   
   serializeJsonPretty(jsonBuffer, Serial);
@@ -116,6 +117,24 @@ bool saveConfig()
   for (int index = 0; index < 64; index++)
   {
     jsonPins.add(pins[index]);
+  }
+  
+  JsonArray jsonIp = jsonBuffer.createNestedArray("ip");
+  for (int index = 0; index < 64; index++)
+  {
+    jsonIp.add(ip[index]);
+  }
+  
+  JsonArray jsonGateway = jsonBuffer.createNestedArray("gateway");
+  for (int index = 0; index < 64; index++)
+  {
+    jsonGateway.add(gateway[index]);
+  }
+  
+  JsonArray jsonMask = jsonBuffer.createNestedArray("mask");
+  for (int index = 0; index < 64; index++)
+  {
+    jsonMask.add(mask[index]);
   }
   
   jsonBuffer["psk"] = String(psk);
@@ -163,10 +182,34 @@ void changeSettings()
       Serial.println(String("hostname = ") + hostname);
       Serial.println(String("ssid = ") + ssid);
       Serial.println(String("psk = ") + psk);
+      
       Serial.print(String("pins = {"));
       for (int index = 0; index < 64; index++)
       {
         Serial.print(String(pins[index]) + ", ");
+      }
+      Serial.println("}");
+      
+      Serial.println(String("staticIpEnabled = ") + staticIpEnabled);
+      
+      Serial.print(String("ip = {"));
+      for (int index = 0; index < 4; index++)
+      {
+        Serial.print(String(ip[index]) + ", ");
+      }
+      Serial.println("}");
+      
+      Serial.print(String("gateway = {"));
+      for (int index = 0; index < 4; index++)
+      {
+        Serial.print(String(gateway[index]) + ", ");
+      }
+      Serial.println("}");
+      
+      Serial.print(String("mask = {"));
+      for (int index = 0; index < 4; index++)
+      {
+        Serial.print(String(mask[index]) + ", ");
       }
       Serial.println("}");
       
@@ -316,6 +359,56 @@ void changeSettings()
           Serial.println("Done making changes to the pins");
         }
         
+        else if (s.equals("staticIpEnabled"))
+        {
+          s = Serial.readStringUntil('\n');
+          if (s.equals("true") || s.equals("1")) staticIpEnabled = true;
+          else staticIpEnabled = false;
+          Serial.println(String("atxOnEnabled = ") + staticIpEnabled);
+        }
+        
+        else if (s.equals("ip"))
+        {
+          Serial.println("Please type the device ip address one number at a time");
+          for (int index = 0; index < 4; index++)
+          {
+            for (int i = 0; i < index; i++)
+            {
+              Serial.println(String(ip[i]) + ".");
+            }
+            s = Serial.readStringUntil('\n');
+            ip[index] = s.toInt();
+          }
+        }
+        
+        else if (s.equals("gateway"))
+        {
+          Serial.println("Please type the gateway ip address one number at a time");
+          for (int index = 0; index < 4; index++)
+          {
+            for (int i = 0; i < index; i++)
+            {
+              Serial.println(String(gateway[i]) + ".");
+            }
+            s = Serial.readStringUntil('\n');
+            ip[index] = s.toInt();
+          }
+        }
+        
+        else if (s.equals("mask"))
+        {
+          Serial.println("Please type the mask number at a time");
+          for (int index = 0; index < 4; index++)
+          {
+            for (int i = 0; i < index; i++)
+            {
+              Serial.println(String(mask[i]) + ".");
+            }
+            s = Serial.readStringUntil('\n');
+            ip[index] = s.toInt();
+          }
+        }
+        
         else Serial.println("Unknown variable name");
       }
     }
@@ -447,10 +540,20 @@ bool loadConfig()
   readBuffer(jsonBuffer, "atxOnPin", atxOnPin);
   readBuffer(jsonBuffer, "turnOffDelay", turnOffDelay);
   readBuffer(jsonBuffer, "OTArounds", OTArounds);
+  readBuffer(jsonBuffer, "staticIpEnabled", staticIpEnabled);
 
   JsonArray jsonPins = jsonBuffer["pins"];
   copyArray(jsonPins, pins);
   
+  JsonArray jsonIp = jsonBuffer["ip"];
+  copyArray(jsonIp, ip);
+  
+  JsonArray jsonGateway = jsonBuffer["gateway"];
+  copyArray(jsonGateway, gateway);
+  
+  JsonArray jsonMask = jsonBuffer["mask"];
+  copyArray(jsonMask, mask);
+    
   Serial.print("pins = {");
   for (int index = 0; index < 64; index++)
   {
