@@ -17,7 +17,7 @@ bool atxOnEnabled = true;
 int turnOffDelay = 60;
 int maxBrightness = 255;
 int OTArounds = 30;             // this is how many seconds we waste waiting for the OTA during boot. sometimes people make mistakes in their code - not me - and the program freezes. this way you can still update your code over the air even if you have some dodgy code in your loop
-int pins[64] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2};              // this is the pinout for Elina's version
+int pins[64] = {4, 16, 17, 5, 18, 19, 21, 22, 23, 13, 12, 14, 27, 26, 33, 32, 25, 15, 3, 1, 2, 0};              // this is the pinout for Elina's version
 // maybe include a possible static ip hare
 
 char ssid[64] = "";
@@ -25,5 +25,7 @@ char psk[64] = "";
 char hostname[64] = "LEDwall";
 
 const int maxFileSize = 10240;
+
+
 
 #endif

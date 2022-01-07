@@ -18,14 +18,9 @@
 
 #include <ArduinoJson.h>
 
-// #define ARTNET_NO_TIMEOUT
-#define ARTNET_ESP32_DEBUG_DISABLED
+#define ARTNET_NO_TIMEOUT_REPORTING
 #include <ArtnetESP32.h>
 
-// extern String WifiReconnectedAt;
-
-// #include "FastLED.h"
-// FASTLED_USING_NAMESPACE
 #include "I2SClocklessLedDriver.h"
 I2SClocklessLedDriver driver;
 
@@ -100,8 +95,6 @@ bool saveConfig()
     return false;
   }
 
-  // Allocate the memory pool on the heap.
-  // Use arduinojson.org/assistant to compute the capacity.
   DynamicJsonDocument jsonBuffer(maxFileSize);
   
   jsonBuffer["ledWidth"] = ledWidth;
@@ -119,11 +112,15 @@ bool saveConfig()
   serializeJsonPretty(jsonBuffer, Serial);
   Serial.println();
   
+  JsonArray jsonPins = jsonBuffer.createNestedArray("pins");
+  for (int index = 0; index < 64; index++)
+  {
+    jsonPins.add(pins[index]);
+  }
+  
   jsonBuffer["psk"] = String(psk);
   serializeJson(jsonBuffer, configFile);
 
-  // We don't need the file anymore
-  
   configFile.close();
 
   return true;
@@ -140,9 +137,9 @@ void changeSettings()
     Serial.println("You have 5 seconds to comply");
     s = Serial.readStringUntil('\n');
     Serial.println(String("You typed: " + s));
+    Serial.setTimeout(1000000000);
     if (s.equals("set") || s.equals("edit"))
     {
-      Serial.setTimeout(1000000000);                 // normally readStringUntil waits only a second
       if (s.equals("edit"))
       {
         loadConfig();
@@ -166,7 +163,13 @@ void changeSettings()
       Serial.println(String("hostname = ") + hostname);
       Serial.println(String("ssid = ") + ssid);
       Serial.println(String("psk = ") + psk);
-
+      Serial.print(String("pins = {"));
+      for (int index = 0; index < 64; index++)
+      {
+        Serial.print(String(pins[index]) + ", ");
+      }
+      Serial.println("}");
+      
       for (;;)
       {
         Serial.println();
@@ -293,6 +296,26 @@ void changeSettings()
           Serial.println(String("OTArounds = ") + OTArounds);
         }
         
+        else if (s.equals("pins"))
+        {
+          Serial.println("You can set the pins one by one");
+          Serial.println("You start with the first pin and can define maximum 64 pins");
+          Serial.println("That's like twice as much as esp32 has but the extra ones don't get called anyways");
+          for (int index = 0; index < 64; index++)
+          {
+            Serial.println();
+            Serial.println(String("pin ") + index);
+            s = Serial.readStringUntil('\n');
+            if (s.equals("done"))
+            {
+              break;
+            }
+            pins[index] = s.toInt();
+            Serial.println(String("pins[") + index + "]" + " = " + pins[index]);
+          }
+          Serial.println("Done making changes to the pins");
+        }
+        
         else Serial.println("Unknown variable name");
       }
     }
@@ -312,7 +335,9 @@ void handleOTAs(void* parameter)
   for (;;)
   {
     delay(100);
+    #ifdef USING_SERIALOTA
     SerialOTAhandle();
+    #endif
     ArduinoOTA.handle();
   }
 }
@@ -324,7 +349,7 @@ void debugInfo(void* parameter)
   {
     delay(60000);
     Both.println();
-    Both.print(String(artnet.frameslues) + " frames read, " + artnet.lostframes + " incomplete frames, lost: " + (float)(artnet.lostframes*100)/(artnet.frameslues + artnet.lostframes) + " %\n\r");
+    Both.print(String(artnet.frameslues) + " full frames, " + artnet.lostframes + " incomplete frames, " + (float)(artnet.lostframes*100)/(artnet.frameslues + artnet.lostframes) + " % lost\n\r");
     printReconnectHistory();
   }
 }
@@ -389,8 +414,6 @@ bool loadConfig()
     return false;
   }
 
-  // Copy values from the JsonObject to the Config
-  
   if (jsonBuffer.containsKey("ssid"))
   {
     String stringSsid = jsonBuffer["ssid"];
@@ -425,8 +448,16 @@ bool loadConfig()
   readBuffer(jsonBuffer, "turnOffDelay", turnOffDelay);
   readBuffer(jsonBuffer, "OTArounds", OTArounds);
 
-  // We don't need the file anymore
+  JsonArray jsonPins = jsonBuffer["pins"];
+  copyArray(jsonPins, pins);
   
+  Serial.print("pins = {");
+  for (int index = 0; index < 64; index++)
+  {
+    Serial.print(String(pins[index]) + ", ");
+  }
+  Serial.println("}");
+
   configFile.close();
 
   return true;
@@ -495,7 +526,7 @@ void setup()
   Serial.begin(115200);
   
   Both.println("Booting");
-
+  
   changeSettings();
   
   loadConfig();
@@ -516,7 +547,6 @@ void setup()
   setupSerialOTA(hostname);
   #endif
   
-  #ifdef USING_SERIALOTA
   xTaskCreatePinnedToCore(
       handleOTAs, // Function to implement the task
       "handleOTAs", // Name of the task
@@ -525,23 +555,9 @@ void setup()
       0,  // Priority of the task
       &task3,  // Task handle.
       0); // Core where the task should run
-  #endif
-  
-  /*
-  xTaskCreatePinnedToCore(
-        changeSettings, // Function to implement the task
-        "changeSettings", // Name of the task
-        10000,  // Stack size in words
-        NULL,  // Task input parameter
-        0,  // Priority of the task
-        &task3,  // Task handle.
-        0); // Core where the task should run
-  */
-  
-  //changeSettings();
-  
+    
   randomSeed(esp_random());
-  // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // in my current setup the maximum current is 50A
+  // set_max_power_in_volts_and_milliamps(5, maxCurrent);   // a relic from the time of FastLED
   
   ledsArtnet = (uint8_t *)malloc(sizeof(uint8_t) * numLeds * 3);
   artnet.setFrameCallback(&displayfunction); //set the function that will be called back a frame has been received
@@ -552,7 +568,7 @@ void setup()
   
   driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
   driver.setBrightness(maxBrightness);
-    
+  
   delay(2000);
   
   if (atxOnEnabled)
