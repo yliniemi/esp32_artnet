@@ -50,6 +50,9 @@ void reconnectToWifiIfNecessary(void* parameter)
         Serial.println("WiFi is gone for good. Giving up. Nothing matters. I hope I can do better in my next life. Rebooting....");
       }
       int time = millis();
+      Serial.println(String("Connection to ") + currentSsid + " succeeded!");
+      Serial.print(String("IP: "));
+      Serial.println(WiFi.localIP());
       WifiReconnectedAt += String(" WiFi reconnected at: ") + time / (1000 * 60 * 60) + ":" + time / (1000 * 60) % 60 + ":" + time / 1000 % 60 + "\r\n";
       void printReconnectHistory();
     }
@@ -68,6 +71,7 @@ void printReconnectHistory()
 
 void setupWifi(char* primarySsid, char* primaryPsk)
 {
+  WiFi.persistent(false);          // we don't want to save the credentials on the internal filessytem of the esp32
   
   if (primarySsid[0] != 0)
   {
@@ -105,11 +109,8 @@ void setupWifi(char* primarySsid, char* primaryPsk)
     ESP.restart();
   }
 
-  Serial.print("Connection to ");
-  Serial.print(currentSsid);
-  Serial.println(" succeeded!");
+  Serial.println(String("Connection to ") + currentSsid + " succeeded!");
   // WiFi.setAutoReconnect(true);  // this didn't work well enough. i had to do this another way
-  WiFi.persistent(false);          // we don't want to save the credentials on the internal filessytem of the esp32
   // WiFi.onEvent(WiFiStationDisconnected, SYSTEM_EVENT_STA_DISCONNECTED);   // this one was problematic too because you shouldn't do much right after trying to reconnect. perhaps fastled disabling interrupts does something nefarious
 
   xTaskCreatePinnedToCore(
@@ -125,4 +126,16 @@ void setupWifi(char* primarySsid, char* primaryPsk)
 void setupWifi()
 {
   setupWifi((char) 0, (char) 0);
+}
+
+// turned out I didn't need these funtions but I leave them hare in case I need them in the future
+void setupWifi(char* primarySsid, char* primaryPsk, IPAddress ip, IPAddress gateway, IPAddress mask)
+{
+  WiFi.config(ip, gateway, mask);
+  setupWifi(primarySsid, primaryPsk);
+}
+
+void setupWifi(IPAddress ip, IPAddress gateway, IPAddress mask)
+{
+  setupWifi((char) 0, (char) 0, ip, gateway, mask);
 }

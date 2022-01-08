@@ -1,3 +1,5 @@
+#define DEBUG
+
 #include <myCredentials.h>        // oh yeah. there is myCredentials.zip on the root of this repository. include it as a library and then edit the file with your onw ips and stuff
 #include "settings.h"
 
@@ -108,40 +110,32 @@ bool saveConfig()
   jsonBuffer["OTArounds"] = OTArounds;
   jsonBuffer["hostname"] = String(hostname);
   jsonBuffer["staticIpEnabled"] = staticIpEnabled;
+  jsonBuffer["serialEnabled"] = serialEnabled;
   jsonBuffer["ssid"] = String(ssid);
   
   serializeJsonPretty(jsonBuffer, Serial);
   Serial.println();
   
   JsonArray jsonPins = jsonBuffer.createNestedArray("pins");
-  for (int index = 0; index < 64; index++)
-  {
-    jsonPins.add(pins[index]);
-  }
+  copyArray(pins, jsonPins);
   
   JsonArray jsonIp = jsonBuffer.createNestedArray("ip");
-  for (int index = 0; index < 64; index++)
-  {
-    jsonIp.add(ip[index]);
-  }
+  copyArray(ip, jsonIp);
   
   JsonArray jsonGateway = jsonBuffer.createNestedArray("gateway");
-  for (int index = 0; index < 64; index++)
-  {
-    jsonGateway.add(gateway[index]);
-  }
+  copyArray(gateway, jsonGateway);
   
   JsonArray jsonMask = jsonBuffer.createNestedArray("mask");
-  for (int index = 0; index < 64; index++)
-  {
-    jsonMask.add(mask[index]);
-  }
+  copyArray(mask, jsonMask);
+  
+  serializeJson(jsonBuffer, Serial);
   
   jsonBuffer["psk"] = String(psk);
+  jsonBuffer["OTApassword"] = String(OTApassword);
+  
   serializeJson(jsonBuffer, configFile);
-
   configFile.close();
-
+  
   return true;
 }
 
@@ -181,7 +175,9 @@ void changeSettings()
       Serial.println(String("OTArounds = ") + OTArounds);
       Serial.println(String("hostname = ") + hostname);
       Serial.println(String("ssid = ") + ssid);
-      Serial.println(String("psk = ") + psk);
+      Serial.println(String("psk = ") + "********");
+      Serial.println(String("OTApassword = ") + "********");
+      Serial.println(String("serialEnabled = ") + serialEnabled);
       
       Serial.print(String("pins = {"));
       for (int index = 0; index < 64; index++)
@@ -273,6 +269,13 @@ void changeSettings()
           s = Serial.readStringUntil('\n');
           s.toCharArray(hostname, 64);
           Serial.println(String("hostname = ") + hostname);
+        }
+        
+        else if (s.equals("OTApassword"))
+        {
+          s = Serial.readStringUntil('\n');
+          s.toCharArray(OTApassword, 64);
+          Serial.println(String("OTApassword = ") + OTApassword);
         }
         
         else if (s.equals("ledWidth"))
@@ -374,8 +377,9 @@ void changeSettings()
           {
             for (int i = 0; i < index; i++)
             {
-              Serial.println(String(ip[i]) + ".");
+              Serial.print(String(ip[i]) + ".");
             }
+            Serial.println();
             s = Serial.readStringUntil('\n');
             ip[index] = s.toInt();
           }
@@ -388,10 +392,11 @@ void changeSettings()
           {
             for (int i = 0; i < index; i++)
             {
-              Serial.println(String(gateway[i]) + ".");
+              Serial.print(String(gateway[i]) + ".");
             }
+            Serial.println();
             s = Serial.readStringUntil('\n');
-            ip[index] = s.toInt();
+            gateway[index] = s.toInt();
           }
         }
         
@@ -402,11 +407,20 @@ void changeSettings()
           {
             for (int i = 0; i < index; i++)
             {
-              Serial.println(String(mask[i]) + ".");
+              Serial.print(String(mask[i]) + ".");
             }
+            Serial.println();
             s = Serial.readStringUntil('\n');
-            ip[index] = s.toInt();
+            mask[index] = s.toInt();
           }
+        }
+        
+        else if (s.equals("serialEnabled"))
+        {
+          s = Serial.readStringUntil('\n');
+          if (s.equals("true") || s.equals("1")) staticIpEnabled = true;
+          else staticIpEnabled = false;
+          Serial.println(String("serialEnabled = ") + serialEnabled);
         }
         
         else Serial.println("Unknown variable name");
@@ -509,26 +523,34 @@ bool loadConfig()
 
   if (jsonBuffer.containsKey("ssid"))
   {
-    String stringSsid = jsonBuffer["ssid"];
-    stringSsid.toCharArray(ssid, 64);
+    String s = jsonBuffer["ssid"];
+    s.toCharArray(ssid, 64);
     ssid[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Both.println(String("ssid") + " = " + ssid);
+    Both.println(String("ssid = ") + ssid);
   }
   
   if (jsonBuffer.containsKey("psk"))
   {
-    String stringPsk = jsonBuffer["psk"];
-    stringPsk.toCharArray(psk, 64);
+    String s = jsonBuffer["psk"];
+    s.toCharArray(psk, 64);
     psk[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Both.println(String("psk") + " = " + "********");
+    Both.println(String("psk = ") + "********");
   }
   
   if (jsonBuffer.containsKey("hostname"))
   {
-    String stringPsk = jsonBuffer["hostname"];
-    stringPsk.toCharArray(hostname, 64);
+    String s = jsonBuffer["hostname"];
+    s.toCharArray(hostname, 64);
     hostname[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
-    Both.println(String("hostname") + " = " + hostname);
+    Both.println(String("hostname = ") + hostname);
+  }
+  
+  if (jsonBuffer.containsKey("OTApassword"))
+  {
+    String s = jsonBuffer["OTApassword"];
+    s.toCharArray(OTApassword, 64);
+    OTApassword[63] = '\n';        // this is here so we don't accidentally pass a char array that never ends
+    Both.println(String("OTApassword = ") + "********");
   }
   
   readBuffer(jsonBuffer, "ledWidth", ledWidth);
@@ -541,6 +563,7 @@ bool loadConfig()
   readBuffer(jsonBuffer, "turnOffDelay", turnOffDelay);
   readBuffer(jsonBuffer, "OTArounds", OTArounds);
   readBuffer(jsonBuffer, "staticIpEnabled", staticIpEnabled);
+  readBuffer(jsonBuffer, "serialEnabled", serialEnabled);
 
   JsonArray jsonPins = jsonBuffer["pins"];
   copyArray(jsonPins, pins);
@@ -561,6 +584,31 @@ bool loadConfig()
   }
   Serial.println("}");
 
+  Serial.print("ip = {");
+  for (int index = 0; index < 4; index++)
+  {
+    Serial.print(String(ip[index]) + ", ");
+  }
+  Serial.println("}");
+
+  Serial.print("gateway = {");
+  for (int index = 0; index < 4; index++)
+  {
+    Serial.print(String(gateway[index]) + ", ");
+  }
+  Serial.println("}");
+
+  Serial.print("mask = {");
+  for (int index = 0; index < 4; index++)
+  {
+    Serial.print(String(mask[index]) + ", ");
+  }
+  Serial.println("}");
+
+  #ifdef DEBUG
+  serializeJson(jsonBuffer, Serial);
+  #endif
+  
   configFile.close();
 
   return true;
@@ -636,6 +684,11 @@ void setup()
   
   numLeds = ledWidth * ledHeight;           // this has to be done after loading config
   
+  if (staticIpEnabled)
+  {
+    WiFi.config(IPAddress(ip[0], ip[1], ip[2], ip[3]), IPAddress(gateway[0], gateway[1], gateway[2], gateway[3]), IPAddress(mask[0], mask[1], mask[2], mask[3]), IPAddress(gateway[0], gateway[1], gateway[2], gateway[3]));
+  }
+  WiFi.setHostname(hostname);
   setupWifi(ssid, psk);
   
   Both.println("Ready");
@@ -644,7 +697,7 @@ void setup()
   Both.print("MAC Address: ");
   Both.println(WiFi.macAddress());
   
-  setupOTA(hostname, OTA_PASSWORD, OTArounds);
+  setupOTA(hostname, OTApassword, OTArounds);
   
   #ifdef USING_SERIALOTA
   setupSerialOTA(hostname);
@@ -668,6 +721,12 @@ void setup()
   artnet.setLedsBuffer((uint8_t*)ledsArtnet); //set the buffer to put the frame once a frame has been received
     
   artnet.begin(numLeds, universeSize); //configure artnet
+  
+  if (!serialEnabled)
+  {
+    Serial.println("Disabling serial so I can use those two pins for something else");
+    Serial.end();
+  }
   
   driver.initled((uint8_t*)ledsArtnet, pins, ledWidth, ledHeight, ORDER_GRB);
   driver.setBrightness(maxBrightness);
