@@ -1,4 +1,19 @@
-#define DEBUG
+/*
+ArtNet LED Matrix
+Copyright (C) 2021 Antti Yliniemi
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License version 3 as published by the Free Software Foundation.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details. 
+https://www.gnu.org/licenses/agpl-3.0.txt
+*/
+
+// My GitHUb https://github.com/yliniemi/
+
+/*
+I use these two libraries by Yvez Basin. He was also kind enough to help me with this source code.
+https://github.com/hpwit/artnetESP32
+https://github.com/hpwit/I2SClockBasedLedDriver
+*/
+
 
 #include <myCredentials.h>        // oh yeah. there is myCredentials.zip on the root of this repository. include it as a library and then edit the file with your onw ips and stuff
 #include "settings.h"
@@ -10,7 +25,7 @@
 #include "SerialOTA.h"
 #endif
 
-// #define USING_SPIFFS          // this is commented because we live inthe future. uncomment if you need spiffs for compatibility reasons
+// #define USING_SPIFFS          // this is commented because we live int the future. uncomment if you need spiffs for compatibility reasons
 #ifdef USING_SPIFFS
 #include <SPIFFS.h>
 #endif
@@ -129,11 +144,13 @@ bool saveConfig()
   copyArray(mask, jsonMask);
   
   serializeJson(jsonBuffer, Serial);
+  Serial.println();
   
   jsonBuffer["psk"] = String(psk);
   jsonBuffer["OTApassword"] = String(OTApassword);
   
   serializeJson(jsonBuffer, configFile);
+  
   configFile.close();
   
   return true;
@@ -220,8 +237,8 @@ void changeSettings()
         {
           Serial.println("Saving your settings to the flash rom");
           saveConfig();
-          Serial.println("Saving complete. Rebooting in 5 seconds");
-          delay(5000);
+          Serial.println("Saving complete. Rebooting in one second");
+          delay(1000);
           ESP.restart();
         }
         
