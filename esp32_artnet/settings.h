@@ -10,9 +10,9 @@
 
 int maxCurrent = 4000;
 int ledWidth = 1;
-int ledHeight = 130;
+int ledHeight = 300;
 int numLeds = ledWidth * ledHeight;
-int universeSize = 130;
+int universeSize = 150;
 int atxOnPin = 23;
 bool atxOnEnabled = false;
 int turnOffDelay = 60;

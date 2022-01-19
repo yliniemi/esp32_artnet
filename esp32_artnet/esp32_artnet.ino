@@ -166,6 +166,7 @@ void changeSettings()
     Serial.println("If there is a problem and you don't want to load the config file type 'set'");
     Serial.println("You have 5 seconds to comply");
     s = Serial.readStringUntil('\n');
+    s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
     Serial.println(String("You typed: " + s));
     Serial.setTimeout(1000000000);
     if (s.equals("set") || s.equals("edit"))
@@ -231,6 +232,7 @@ void changeSettings()
         Serial.println();
         Serial.println("Please type a variable name or a command");
         s = Serial.readStringUntil('\n');
+        s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
         Serial.println(String("You typed: " + s));
         
         if (s.equals("save"))
@@ -270,6 +272,7 @@ void changeSettings()
         else if (s.equals("ssid"))
         {
           s = Serial.readStringUntil('\n');
+          if (s.charAt(s.length() - 1) == '\r') s.remove(s.length() - 1);
           s.toCharArray(ssid, 64);
           Serial.println(String("ssid = ") + ssid);
         }
@@ -277,6 +280,7 @@ void changeSettings()
         else if (s.equals("psk"))
         {
           s = Serial.readStringUntil('\n');
+          if (s.charAt(s.length() - 1) == '\r') s.remove(s.length() - 1);
           s.toCharArray(psk, 64);
           Serial.println(String("psk = ") + psk);
         }
@@ -284,6 +288,7 @@ void changeSettings()
         else if (s.equals("hostname"))
         {
           s = Serial.readStringUntil('\n');
+          if (s.charAt(s.length() - 1) == '\r') s.remove(s.length() - 1);
           s.toCharArray(hostname, 64);
           Serial.println(String("hostname = ") + hostname);
         }
@@ -291,6 +296,7 @@ void changeSettings()
         else if (s.equals("OTApassword"))
         {
           s = Serial.readStringUntil('\n');
+          if (s.charAt(s.length() - 1) == '\r') s.remove(s.length() - 1);
           s.toCharArray(OTApassword, 64);
           Serial.println(String("OTApassword = ") + OTApassword);
         }
@@ -298,6 +304,7 @@ void changeSettings()
         else if (s.equals("ledWidth"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           ledWidth = s.toInt();
           Serial.println(String("ledWidth = ") + ledWidth);
         }
@@ -305,6 +312,7 @@ void changeSettings()
         else if (s.equals("ledHeight"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           ledHeight = s.toInt();
           Serial.println(String("ledHeight = ") + ledHeight);
         }
@@ -312,6 +320,7 @@ void changeSettings()
         else if (s.equals("universeSize"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           universeSize = s.toInt();
           Serial.println(String("universeSize = ") + universeSize);
         }
@@ -319,6 +328,7 @@ void changeSettings()
         else if (s.equals("maxCurrent"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           maxCurrent = s.toInt();
           Serial.println(String("maxCurrent = ") + maxCurrent);
         }
@@ -326,6 +336,7 @@ void changeSettings()
         else if (s.equals("maxBrightness"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           maxBrightness = s.toInt();
           Serial.println(String("maxBrightness = ") + maxBrightness);
         }
@@ -333,6 +344,7 @@ void changeSettings()
         else if (s.equals("atxOnEnabled"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           if (s.equals("true") || s.equals("1")) atxOnEnabled = true;
           else atxOnEnabled = false;
           Serial.println(String("atxOnEnabled = ") + atxOnEnabled);
@@ -341,6 +353,7 @@ void changeSettings()
         else if (s.equals("atxOnPin"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           atxOnPin = s.toInt();
           Serial.println(String("atxOnPin = ") + atxOnPin);
         }
@@ -348,6 +361,7 @@ void changeSettings()
         else if (s.equals("turnOffDelay"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           turnOffDelay = s.toInt();
           Serial.println(String("turnOffDelay = ") + turnOffDelay);
         }
@@ -355,6 +369,7 @@ void changeSettings()
         else if (s.equals("OTArounds"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           OTArounds = s.toInt();
           Serial.println(String("OTArounds = ") + OTArounds);
         }
@@ -369,6 +384,7 @@ void changeSettings()
             Serial.println();
             Serial.println(String("pin ") + index);
             s = Serial.readStringUntil('\n');
+            s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
             if (s.equals("done"))
             {
               break;
@@ -382,6 +398,7 @@ void changeSettings()
         else if (s.equals("staticIpEnabled"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           if (s.equals("true") || s.equals("1")) staticIpEnabled = true;
           else staticIpEnabled = false;
           Serial.println(String("atxOnEnabled = ") + staticIpEnabled);
@@ -398,6 +415,7 @@ void changeSettings()
             }
             Serial.println();
             s = Serial.readStringUntil('\n');
+            s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
             ip[index] = s.toInt();
           }
         }
@@ -413,6 +431,7 @@ void changeSettings()
             }
             Serial.println();
             s = Serial.readStringUntil('\n');
+            s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
             gateway[index] = s.toInt();
           }
         }
@@ -428,6 +447,7 @@ void changeSettings()
             }
             Serial.println();
             s = Serial.readStringUntil('\n');
+            s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
             mask[index] = s.toInt();
           }
         }
@@ -435,6 +455,7 @@ void changeSettings()
         else if (s.equals("serialEnabled"))
         {
           s = Serial.readStringUntil('\n');
+          s.trim();             // some terminals add an extra return character /r. we remove that. we get rid of other whitespaces with this command
           if (s.equals("true") || s.equals("1")) staticIpEnabled = true;
           else staticIpEnabled = false;
           Serial.println(String("serialEnabled = ") + serialEnabled);
